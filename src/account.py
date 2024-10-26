@@ -1,7 +1,8 @@
 import csv
+import math
 
 import matplotlib.pyplot as plt
-import numpy
+import numpy as np
 
 
 def test():
@@ -11,11 +12,13 @@ def test():
     plt.show()
 
 
-def read():
+def read(file):
     x = []
     y = []
+    avg30 = []
+    avg180 = []
     first = 0
-    with open('../data/红利低波.csv', 'r', encoding='utf8') as f:
+    with open(f'../data/{file}.csv', 'r', encoding='utf8') as f:
         reader = csv.DictReader(f)
         for line in reader:
             # print(line)
@@ -23,18 +26,16 @@ def read():
             x.append(first)
             first = first + 1
             y.append(float(line.get('value')))
-    return x, y
+            if len(y) >= 30:
+                avg30.append(np.mean(y[-30:]))
+            # else:
+            #     avg30.append(0)
+            if len(y) >= 180:
+                avg180.append(np.mean(y[-180:]))
+            # else:
+            #     avg180.append(0)
 
-
-def render():
-    x, y = read()
-    plt.figure(figsize=(16 * 5, 9), dpi=100)
-    plt.plot(x, y)
-    # plt.show()
-    plt.savefig('../output/image.png', bbox_inches='tight')
-
-
-# render()
+    return x, y, avg30, avg180
 
 
 def computed_int_count(total, price):
@@ -42,11 +43,23 @@ def computed_int_count(total, price):
     return int(count / 100) * 100
 
 
+def computed_round(start, end):
+    return round((end - start) / start * 100, 2)
+
+
 class Account():
 
-    def __init__(self, config, x, y):
-        self.x = x
-        self.y = [n / 10000 for n in y]  # 指数转换为较小净值
+    def __init__(self, config, x, y, avg30, avg180):
+        self.x = x  # 序号
+        # self.y = [n / 10000 for n in y]  # 指数转换为较小净值
+        self.y = y
+        self.avg30 = avg30  # 平均值
+        self.avg180 = avg180  # 平均值
+        self.latest_max = 0  # 最近极大值
+        self.latest_min = 0  # 最近极小值
+        self.down_stage = True  # 牛市
+        self.buy_options = []
+        self.sell_options = []
 
         init_money = config.get('init_money')
         self.init_percent = config.get('init_percent')
@@ -66,6 +79,7 @@ class Account():
         self.z1 = [self.money]  # 历史总余额
         self.z2 = [self.inventory]  # 历史总股数
         self.z3 = [self.total_amount()]  # 历史总资产
+        self.z4 = [self.init_percent]  # 历史总资产
 
     # 总市值 end为查看收盘市值
     def total_amount(self, end=False):
@@ -82,68 +96,185 @@ class Account():
             print('余额不足，购买失败 日期：%s' % date)
 
     # 通过数量购买或卖出
-    def deal_with_percent(self, percent, price, date):
+    def deal_with_percent(self, percent, price, date, delta=1):
+        delta = round(delta * delta * delta, 4)
+        percent = percent * delta if delta else percent  # 根据因子修改买卖幅度
         count = computed_int_count(percent * self.total_amount(), price)  # 计算买卖数量
         total = count * price  # 计算买卖金额
-        if (count > 0 and self.money >= total) or (count < 0 and self.inventory >= count):
-            self.money = self.money - total
-            self.inventory = self.inventory + count
-            print('日期：%s 金额：%s' % (date, total))
-        else:
-            print('日期：%s 余额不足，购买失败 ' % date)
+        if (percent > 0 and self.money >= total) or (percent < 0 and self.inventory >= count):
+            print('日期：%s 比例：%s 因子：%s' % (date, round(percent, 4), delta))
+        elif percent > 0:
+            count = computed_int_count(self.money, price)  # 计算买卖数量
+            total = count * price  # 计算买卖金额
+            print('日期：%s 比例：%s 因子：%s 余额不足，已顶格购买' % (date, round(percent, 4), delta))
+        elif percent < 0:
+            count = -self.inventory
+            total = count * price  # 计算买卖金额
+            print('日期：%s 比例：%s 因子：%s 余券不足，已全部卖出' % (date, round(percent, 4), delta))
 
-    # 下一天交易
-    def computed_date_next(self, date):
+        self.money = self.money - total
+        self.inventory = self.inventory + count
+
+    # 股价小于最近极大值且小于avg180)
+    # 牛市很难被预测，但可以去回顾。
+    # 熊市则可以被记录，也可以被标记为牛熊之间的模糊阶段。
+    # def computed_down_stage(self):
+    #     price = self.y[self.date]
+    #     if self.latest_max <= price:
+    #         self.latest_max = price
+    #         self.latest_min = price # 刷新低点位置
+    #     if self.latest_min > price:
+    #         self.latest_min = price
+    #     if self.latest_max > price and self.avg180 > price and self.avg30 > price:
+    #         self.down_stage = True # 判断为熊市
+
+    # 固定交易，下一天 （无论均线位置等额买卖）
+    def computed_date_next1(self):
         # date = self.date
-        base_price = self.base_price
-        start_price = self.y[date - 1]  # 开盘价是上一天的收盘价
-        end_price = self.y[date]  # 获取当天收盘价
+        # base_price = self.base_price
+        # start_price = self.y[self.date - 1]  # 开盘价是上一天的收盘价
+        end_price = self.y[self.date]  # 获取当天收盘价
         sell_price = self.base_price * self.step_u
         buy_price = self.base_price * self.step_d
         if end_price >= sell_price:
             # 上涨超过基准
-            self.deal_with_percent(self.sell_percent, sell_price, date)
+            self.deal_with_percent(self.sell_percent, sell_price, self.date)
             self.base_price = sell_price
+            self.sell_options.append((self.date, sell_price))
         elif end_price <= buy_price:
             # 下跌超过基准
-            self.deal_with_percent(self.buy_percent, buy_price, date)
+            self.deal_with_percent(self.buy_percent, buy_price, self.date)
             self.base_price = buy_price
+            self.buy_options.append((self.date, buy_price))
 
+        total_money = self.total_amount()
         self.z1.append(self.money)  # 历史总余额
         self.z2.append(self.inventory)  # 历史总股数
-        self.z3.append(self.total_amount())  # 历史总资产
-        self.date = date + 1  # 加一天
+        self.z3.append(total_money)  # 历史总资产
+        self.z4.append(round((total_money - self.money) / total_money, 2))  # 持仓比例
+        self.date = self.date + 1  # 加一天
+
+    # 智能交易，下一天 （根据均线位置调整买卖额度）
+    def computed_date_next2(self):
+        date = self.date
+        # avg30 = self.avg30[date] if date >= 30 else self.base_price
+        avg180 = self.avg180[date - 180] if date >= 180 else self.base_price
+        # start_price = self.y[date - 1]  # 开盘价是上一天的收盘价
+        end_price = self.y[date]  # 获取当天收盘价
+        sell_price = self.base_price * self.step_u
+        buy_price = self.base_price * self.step_d
+        delta = 1 + (self.base_price - avg180) / avg180
+        if end_price >= sell_price:
+            # 上涨超过基准
+            self.deal_with_percent(self.sell_percent, sell_price, self.date, delta=delta)
+            self.base_price = sell_price
+            self.sell_options.append((self.date, sell_price))
+        elif end_price <= buy_price:
+            # 下跌超过基准
+            self.deal_with_percent(self.buy_percent, buy_price, self.date, delta=delta)
+            self.base_price = buy_price
+            self.buy_options.append((self.date, buy_price))
+
+        total_money = self.total_amount()
+        self.z1.append(self.money)  # 历史总余额
+        self.z2.append(self.inventory)  # 历史总股数
+        self.z3.append(total_money)  # 历史总资产
+        self.z4.append(round((total_money - self.money) / total_money, 2))  # 持仓比例
+        self.date = self.date + 1  # 加一天
 
 
-init_config = {
-    'init_money': 100_0000,  # 初始金额 100万
-    'init_percent': 0.9,  # 初始持仓 80%
-    'step_u': 1.02,  # 涨x后卖出     5%
-    'step_d': 0.98,  # 跌x后买入    5%
-    'buy_percent': 0.02,  # 每次买入占总仓位比重   11%
-    'sell_percent': -0.01,  # 每次卖出占总仓位比重  10%
-    'buy_count': 0,  # 每次买入数量   0
-    'sell_count': 0,  # 每次卖出数量  0
-}
-
-
-def render2():
-    x, y = read()
-    account = Account(init_config, x, y)
+def render3(config):
+    file = config.get('init_data')
+    deal_type = config.get('deal_type')
+    x, y, avg30, avg180 = read(file)
+    account = Account(config, x, y, avg30, avg180)
 
     for date in x:
-        if date < 2:
+        if date < 1:
             continue
-        account.computed_date_next(date)
+        if deal_type == '1':
+            account.computed_date_next1()
+        elif deal_type == '2':
+            account.computed_date_next2()
 
-    plt.figure(figsize=(16 * 5, 9), dpi=100)
-    plt.plot(x, y, label="指数", color="red")
-    plt.plot(x, account.z1, label="余额", color="green")
-    plt.plot(x, account.z2, label="股数", color="blue")
-    plt.plot(x, account.z3, label="总资产", color="gray")
-    # plt.show()
-    plt.savefig('../output/image.png', bbox_inches='tight')
-    print('total', account.total_amount())
+    start_total = config.get('init_money')
+    end_total = account.total_amount()
+
+    print('指数增长', computed_round(y[0], y[-1]))
+    print('总收益率', computed_round(start_total, end_total))
+    # 坐标对齐
+    index_max = max(y) * 1.2
+    money_max = index_max * account.z3[0] / y[0]
+    if max(account.z3) > money_max:
+        money_max = max(account.z3) * 1.2
+        index_max = money_max * y[0] / account.z3[0]
+
+    # 画图
+    fig, ax1 = plt.subplots(1, 1, figsize=(16 * 3, 9), dpi=100)
+    ax1.set_ylim(0, index_max)
+    ax1.set_xlim(x[0], x[-1])
+    ax1.plot(x, y, label="指数", color="red")
+    ax1.plot(x, [p * index_max for p in account.z4], label="比例", color="skyblue", linestyle='--', )
+    # if config.get('show_avg'):
+    #     ax1.plot(x[-len(account.avg30):], account.avg30, color="green", linestyle='--', )
+    ax1.plot(x[-len(account.avg180):], account.avg180, color="pink", linestyle='--', )
+
+    ax2 = ax1.twinx()
+    ax2.plot(x, account.z3, label="总资产", color="blue")
+    # ax2.plot(x, account.z2, label="股数", color="blue")
+    ax2.set_ylim(0, money_max)
+    ax2.set_xlim(x[0], x[-1])
+
+    xs, ys = [list(t) for t in zip(*account.sell_options)]
+    xb, yb = [list(t) for t in zip(*account.buy_options)]
+    ax1.scatter(xs, ys, marker='o', edgecolor='darkblue', s=30)
+    ax1.scatter(xb, yb, marker='o', edgecolor='black', s=30)
+
+    plt.savefig(f'../output/image_{file}.png', bbox_inches='tight')
 
 
-render2()
+# 红利低波确实有收益提高，但网格提升幅度太小 不超过5%
+config_hldb = {
+    # 'init_data': 'A500',
+    'init_data': '红利低波',
+    'init_money': 100_0000_0000,  # 初始金额 100万
+    'init_percent': 0.95,  # 初始持仓 80%
+    'step_u': 1.50,  # 涨x后卖出     5%
+    'sell_percent': -0.01,  # 每次卖出占总仓位比重  10%
+    'sell_count': 0,  # 每次卖出数量  0
+    'step_d': 0.96,  # 跌x后买入    5%
+    'buy_percent': 0.04,  # 每次买入占总仓位比重   3%
+    'buy_count': 0,  # 每次买入数量   0
+    # 'show_avg': False
+}
+# render3(config_hldb)
+
+# 网格超额收益确实不小，但总收益太少
+config_a500_1 = {
+    'deal_type': '1',
+    'init_data': 'A500',
+    'init_money': 100_0000_0000,  # 初始金额 100万
+    'init_percent': 0.9,  # 初始持仓 80%
+    'step_u': 1.15,  # 涨x后卖出     5%
+    'sell_percent': -0.15,  # 每次卖出占总仓位比重  10%
+    'sell_count': 0,  # 每次卖出数量  0
+    'step_d': 0.84,  # 跌x后买入    5%
+    'buy_percent': 0.25,  # 每次买入占总仓位比重   3%
+    'buy_count': 0,  # 每次买入数量   0
+    # 'show_avg': False
+}
+config_a500_2 = {
+    'deal_type': '2',
+    'init_data': 'A500',
+    'init_money': 100_0000_0000,  # 初始金额 100万
+    'init_percent': 0.9,  # 初始持仓 80%
+    'step_u': 1.15,  # 涨x后卖出     5%
+    'sell_percent': -0.15,  # 每次卖出占总仓位比重  10%
+    'sell_count': 0,  # 每次卖出数量  0
+    'step_d': 0.90,  # 跌x后买入    5%
+    'buy_percent': 0.15,  # 每次买入占总仓位比重   3%
+    'buy_count': 0,  # 每次买入数量   0
+    # 'show_avg': False
+}
+
+render3(config_a500_2)
