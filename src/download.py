@@ -13,7 +13,7 @@ def download_file(code):
     json_data = [{
         'endDate': now.strftime('%Y%m%d'),
         'indexCode': code,
-        'startDate': now.replace(year=now.year-12).strftime('%Y%m%d'),
+        'startDate': now.replace(year=now.year-15).strftime('%Y%m%d'),
     }]
     response = requests.post(url, json=json_data, headers=headers)
     if response.status_code == 200:
@@ -23,5 +23,5 @@ def download_file(code):
 
 
 # download_file("000510")
-# download_file("H20955")
-# download_file("000300")
+download_file("H20955")
+download_file("000300")
