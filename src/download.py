@@ -13,14 +13,15 @@ def download_file(code):
     json_data = [{
         'endDate': now.strftime('%Y%m%d'),
         'indexCode': code,
-        'startDate': now.replace(year=now.year-10).strftime('%Y%m%d'),
+        'startDate': now.replace(year=now.year-12).strftime('%Y%m%d'),
     }]
     response = requests.post(url, json=json_data, headers=headers)
     if response.status_code == 200:
-        with open('../data/download.xlsx', 'wb',) as f:
+        with open(f'../data/download_{code}.xlsx', 'wb',) as f:
             for chunk in response.iter_content(chunk_size=1024):
                 f.write(chunk)
 
 
 # download_file("000510")
-download_file("H20955")
+# download_file("H20955")
+# download_file("000300")
