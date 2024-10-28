@@ -92,19 +92,6 @@ class Account():
         date = self.date if end else self.date - 1
         return self.money + self.inventory * self.y[date]
 
-    # 股价小于最近极大值且小于avg180)
-    # 牛市很难被预测，但可以去回顾。
-    # 熊市则可以被记录，也可以被标记为牛熊之间的模糊阶段。
-    # def computed_down_stage(self):
-    #     price = self.y[self.date]
-    #     if self.latest_max <= price:
-    #         self.latest_max = price
-    #         self.latest_min = price # 刷新低点位置
-    #     if self.latest_min > price:
-    #         self.latest_min = price
-    #     if self.latest_max > price and self.avg180 > price and self.avg30 > price:
-    #         self.down_stage = True # 判断为熊市
-
     def computed_date_next(self):
         end_price = self.y[self.date]  # 获取当天收盘价
         sell_price = self.base_price * self.step_u
