@@ -1,126 +1,167 @@
-import datetime
+from datetime import datetime, timedelta
 
 import pysnowball as ball
-import datetime
-import numpy as np
 import pandas as pd
+import numpy as np
 
+import matplotlib.dates as mpd
 import matplotlib.pylab as mpl
+import matplotlib.pyplot as plt
 
 mpl.rcParams['font.sans-serif'] = ['FangSong']
 mpl.rcParams['axes.unicode_minus'] = False
-import matplotlib.pyplot as plt
-
 plt.switch_backend('TkAgg')
 
-ball.set_token("xq_a_token=a74d29b185741115b5e0b3a2d18e2b3f4ae8b9bc;u=3376125439;")
+"""
+雪球接口封装
+https://github.com/uname-yang/pysnowball、
 
-symbols1 = [('SH600938', '中国海油'), ('00883', '中国海洋石油'), ]
-symbols2 = [('600941', '中国移动'), ('00941', '中国移动'), ]
-symbols4 = [('601988', '中国银行'), ('03988', '中国银行'), ]
-symbols5 = [('601318', '中国平安'), ('02318', '中国平安'), ]
-symbols3 = [('600690', '海尔智家'), ('06690', '海尔智家'), ]
+# 设置token Cookie中的xq_a_token
+ball.set_token("xq_a_tokene36746aa36d09ef01e900d02440657bf657ac97c;u=3376125439;")
+
+# 实时行情
+data = ball.quote_detail('SH600938')
+
+# k线，历史x天
+kline = ball.kline('SH600938', 300)
+[
+    "timestamp", 时间戳
+    "open", 开盘
+    "high", 最高
+    "low", 最低
+    "close", 收盘
+    "chg", 涨跌额
+    "percent", 涨跌幅
+    "turnoverrate", 换手率
+    "volume", 成交量
+    "amount", 成交额
+    "pe", 市盈率
+    "pb", 市净率
+    "ps", 市销率
+    "pcf", 市现率
+    "market_capital", 总市值
+]
+
+# 利润表 is_annals 只获取年报,默认为1 count 多少条
+income = ball.income(symbol='SH600938', is_annals=1, count=10)
+"""
+
+ball.set_token("xq_a_token=2420c49cd18e847d63cec9744fd29e638ff2a540;u=3376125439;")
+
+example_symbols = [
+    ('SH000300', '沪深300'),
+    ('SH511010', '国债ETF'),
+    ('SH512100', '中证1000ETF'),
+    ('SH515080', '中证红利ETF', 1.571),
+    ('SH515100', '红利低波100ETF', 1.51),
+    ('SH513630', '港股红利指数ETF', 1.288),
+    ('SH563300', '中证2000ETF', 1.144),
+    ('SH600938', '中国海油'),
+    ('01810', '小米集团'),
+]
+
+example_color = [
+    '#ff1908',
+    '#f5642c',
+    '#faad14',
+    '#1677ff',
+    '#00b96b',
+    '#f02b99',
+    '#8b70f1',
+]
+
+message_found = """\n%s(%s) 昨日收盘%s，昨日涨幅%s，近一年涨幅%s，180日均线偏离值%s"""
 
 
-# # 实时行情
-# dataA = ball.quote_detail('SH600938')
-# # k线，历史x天
-# lineA = ball.kline('SH600938', 300)
-# # 利润表 is_annals 只获取年报,默认为1 count 多少条
-# income = ball.income(symbol='SH600938', is_annals=1, count=10)
+def render_message(symbol, df):
+    close_last_year = df['close'].iloc[0]
+    close = df['close'].iloc[-2]
+    avg = df['avg'].iloc[-2]
+    percent = df['percent'].iloc[-2]
+    plz = round((close - avg) / avg * 100, 2)
+    change = round((close - close_last_year) / close_last_year * 100, 2)
+    return message_found % (
+        symbol[1], symbol[0], f"{close}", f"{percent}%", f"{change}%", f"{plz}%",)
 
 
-def render_ah(symbol_a, symbol_h, start_date):
-    plt.figure(figsize=(16 * 5, 9))
+def send_message(msg):
+    print(msg)
 
-    start = datetime.datetime.strptime(start_date, '%Y%m%d')
-    interval = (datetime.datetime.now() - start).days
+
+def download(symbols, start_date):
+    start = datetime.strptime(start_date, '%Y%m%d')
+    interval = (datetime.now() - start).days
+    for symbol in symbols:
+        kline = ball.kline(symbol, days=interval).get('data')
+        df = pd.DataFrame(kline.get('item'), columns=kline.get('column'))
+        df['日期Date'] = [datetime.fromtimestamp(t / 1000).strftime('%Y%m%d') for t in df['timestamp']]
+        df['收盘Close'] = df['close']
+        df['指数代码Index Code'] = [symbol for i in df['close']]
+        with pd.ExcelWriter(f'../data/snowball_{symbol}.xlsx') as writer:
+            columns = ['日期Date', '指数代码Index Code', '收盘Close']
+            df.to_excel(writer, index=False, sheet_name='Data', columns=columns)
+
+
+def fetch_data(symbols, start_date):
+    start = datetime.strptime(start_date, '%Y%m%d')
     start_timestamp = start.timestamp() * 1000
-    line_a = ball.kline(symbol_a, interval).get('data')
-    df_a = pd.DataFrame(line_a.get('item'), columns=line_a.get('column'))
-    df_a = df_a[df_a['timestamp'] > start_timestamp]
-    df_a['date'] = pd.to_datetime(df_a['timestamp'])
-    a_close = df_a['close'].iloc[0]
-    # date_a = [datetime.datetime.fromtimestamp(x / 1000) for x in df_a['timestamp']]
-    plt.plot_date(df_a['date'], df_a['close'], '-', label=symbol_a, color="red")
-
-    line_h = ball.kline(symbol_h, interval).get('data')
-    df_h = pd.DataFrame(line_h.get('item'), columns=line_h.get('column'))
-    df_h = df_h[df_h['timestamp'] > start_timestamp]
-    df_h['date'] = pd.to_datetime(df_h['timestamp'])
-    h_close = df_h['close'].iloc[0]
-    # date_h = [datetime.datetime.fromtimestamp(x / 1000) for x in df_h['timestamp']]
-    plt.plot_date(df_h['date'], [x / h_close * a_close for x in df_h['close']], '-', label=symbol_h, color="pink")
-
-    # # 计算溢价比例
-    # df_c = pd.read_excel('../data/结算汇兑比率.xlsx', sheet_name='结算汇兑比率')
-    # df_c['currency_ratio'] = (df_c['买入结算汇兑比率'] + df_c['卖出结算汇兑比率']) / 2
-    # df_c['timestamp'] = [datetime.datetime.strptime(x, '%Y-%m-%d').timestamp() for x in df_c['适用日期']]
-    # ymin, ymax = plt.ylim()
-    # # h_close = df_h['close'].iloc[0]
-    # date_c = [datetime.datetime.fromtimestamp(x / 1000) for x in df_h['适用日期']]
-    #
-    # plt.plot_date(date_c, [ymax * x for x in df_h['currency_ratio']], '-', label=symbol_h, color="pink")
-
-    plt.xlabel('交易日')
-    plt.ylabel('收盘价')
-    plt.legend(loc='upper right')
-
-    plt.grid(True)
-    plt.savefig(f'../output/image_snowball.png', bbox_inches='tight')
+    interval = (datetime.now() - start).days
+    dfs = []
+    for symbol in symbols:
+        kline = ball.kline(symbol, days=interval).get('data')
+        df = pd.DataFrame(kline.get('item'), columns=kline.get('column'))
+        df = df[df['timestamp'] >= start_timestamp]
+        df['date'] = [datetime.fromtimestamp(t / 1000).strftime('%Y-%m-%d') for t in df['timestamp']]
+        dfs.append(df)
+        # with pd.ExcelWriter(f'../output/{symbol}_{start_date}.xlsx') as writer:
+        #     columns = ['date', 'close', 'percent', 'timestamp']
+        #     df.to_excel(writer, index=False, sheet_name='Data', columns=columns)
+    return dfs
 
 
-def render_ah2(symbol_a, symbol_h, start_date):
-    plt.figure(figsize=(16 * 5, 9))
+def render_chart(symbols, start_date):
+    dfs = [pd.read_excel(f'../output/{symbol}_{start_date}.xlsx') for symbol in symbols]
+    render(symbols, start_date, dfs, )
 
-    start = datetime.datetime.strptime(start_date, '%Y%m%d')
-    interval = (datetime.datetime.now() - start).days
 
-    line_a = ball.kline(symbol_a, interval).get('data')
-    df_a = pd.DataFrame(line_a.get('item'), columns=line_a.get('column'))
-    df_a['date'] = [datetime.datetime.fromtimestamp(x / 1000) for x in df_a['timestamp']]
+def render(symbols, start_date, dfs, avg=180):
+    start = datetime.strptime(start_date, '%Y%m%d')
+    start_timestamp = start.timestamp() * 1000
+    # 时间对齐
+    dfs = [df[df['timestamp'] >= start_timestamp] for df in dfs]
+    # 起点对齐
+    start_value = dfs[0]['close'].iloc[0]
+    ratios = [start_value / df['close'].iloc[0] for df in dfs]
 
-    line_h = ball.kline(symbol_h, interval).get('data')
-    df_h = pd.DataFrame(line_h.get('item'), columns=line_h.get('column'))
-    df_h['date'] = [datetime.datetime.fromtimestamp(x / 1000) for x in df_h['timestamp']]
-    # # 计算溢价比例
-    df_c = pd.read_excel('../data/结算汇兑比率.xlsx', sheet_name='结算汇兑比率')
-    df_c['date'] = [datetime.datetime.strptime(x, '%Y-%m-%d') for x in df_c['适用日期']]
-    df_c['currency_ratio'] = (df_c['买入结算汇兑比率'] + df_c['卖出结算汇兑比率']) / 2
-
-    df1 = pd.DataFrame()
-    df1['date'] = df_a['date']
-    df1['close_a'] = df_a['close']
-    df2 = pd.DataFrame()
-    df2['date'] = df_h['date']
-    df2['close_h'] = df_h['close']
-    df3 = pd.DataFrame()
-    df3['date'] = df_c['date']
-    df3['currency_ratio'] = df_c['currency_ratio']
-    df12 = pd.merge(df1, df2, on='date', how='outer')
-    df123 = pd.merge(df12, df3, on='date', how='outer')
-
-    start_a = df123['close_a'].iloc[0]
-    start_h = df123['close_h'].iloc[0]
-
-    plt.plot_date(df123['date'], df123['close_a'], '-', label=symbol_a, color="pink")
-    plt.plot_date(df123['date'], [x / start_h * start_a for x in df123['close_h']], '-', label=symbol_h, color="pink")
-
-    ymin, ymax = plt.ylim()
-    plt.plot_date(df123['date'], [ymax * x for x in df123['currency_ratio']], '-', label=symbol_h, color="pink")
+    plt.figure(figsize=(5 * 4, 5))
+    message = "今天是%s，昨日股市表现如下" % (datetime.now().strftime('%Y年%m月%d日'))
+    for i, df in enumerate(dfs):
+        date_axis = pd.to_datetime(df['date'], format='%Y-%m-%d')
+        symbol = None
+        for s in example_symbols:
+            if s[0] == symbols[i]:
+                symbol = s
+                break
+        label = symbol[1] if symbol else symbols[i]
+        df['avg'] = df['close'].rolling(window=avg).mean()
+        plt.plot_date(date_axis, [x * ratios[i] for x in df['close']], '-', color=example_color[i], label=label)
+        plt.plot_date(date_axis, [x * ratios[i] for x in df['avg']], '--', color=example_color[i], label=f'{label}_avg')
+        message = message + render_message(symbol, df)
 
     plt.xlabel('交易日')
     plt.ylabel('收盘价')
-    plt.legend(loc='upper right')
-
+    plt.legend(loc='upper left')
     plt.grid(True)
-    plt.savefig(f'../output/image_snowball.png', bbox_inches='tight')
+    # plt.show()
+    plt.savefig(f'../output/render_dataframe_{start_time}.png', bbox_inches='tight')
+    send_message(message)
 
 
-render_ah2('SH600938', '00883', '20231031')
-# detail = ball.quote_detail('00883')
-# detail = ball.main_indicator('SH600938')
-
-# Index(['适用日期', '买入结算汇兑比率', '卖出结算汇兑比率', '货币种类'], dtype='object')
-# detail = pd.read_excel('../data/结算汇兑比率.xlsx', sheet_name='结算汇兑比率')
-# print(detail)
+if __name__ == '__main__':
+    start_time = (datetime.now() - timedelta(days=366)).strftime('%Y%m%d')
+    symbol_list = ['SH000300', 'SH515100', 'SH513630', 'SH563300', 'SH515080', 'SH512890']
+    # start_time = '20201201'
+    # symbol_list = ['SH512100', 'SH515100', 'SH515080']
+    # df_list = fetch_data(symbol_list, start_time)
+    # render(symbol_list, start_time, df_list, )
+    download(symbol_list, '20131218')
