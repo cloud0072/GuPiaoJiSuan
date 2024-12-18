@@ -232,7 +232,7 @@ class Account:
         # ax.xaxis.set_major_locator(mdates.DayLocator())
 
         ax1.grid(True)
-        plt.savefig(f'../output/image_grid_{self.symbol}_{self.start}.png', bbox_inches='tight')
+        plt.savefig(f'../output/image_hongli_{self.symbol}_{self.start}.png', bbox_inches='tight')
 
     """
         年化12%业绩比较基准+-3%进行调仓
