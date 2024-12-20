@@ -29,9 +29,10 @@ def download_file(code, start_date):
                 f.write(chunk)
 
 
+download_file("000300", '20130101')
+download_file("000510", '20130101')
+download_file("000852", '20130101')
 download_file("000905", '20130101')
-# download_file("000922CNY020", '20130101')
-# download_file("000852", '20130101')
-# download_file("000300", '20130101')
-# download_file("H20269", '20130101')
-# download_file("H20955", '20130101')
+download_file("H20269", '20130101')
+download_file("H20955", '20130101')
+download_file("000922CNY020", '20130101')
