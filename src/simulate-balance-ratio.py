@@ -6,6 +6,12 @@ import pandas as pd
 import matplotlib.pylab as mpl
 import matplotlib.pyplot as plt
 
+"""
+股债平衡，可以有效降低回撤，
+但是收益率还是太低了，投资周期太长
+"""
+
+
 mpl.rcParams['font.sans-serif'] = ['FangSong']
 mpl.rcParams['axes.unicode_minus'] = False
 
@@ -48,8 +54,11 @@ def computed_annualized(series, days):
     return data_list
 
 
-def read_csindex(start_date, codes):
-    start_time = pd.to_datetime(start_date, format=date_format)
+def read_csindex(codes):
+    start = init_config.get('start')
+    end = init_config.get('end')
+    start_time = pd.to_datetime(start, format=date_format)
+    end_time = pd.to_datetime(end, format=date_format) if end else None
     result = []
     for code in codes.split(','):
         df = pd.read_excel(f'../data/download_{code}.xlsx', usecols=['日期Date', '收盘Close', '最高High', '最低Low'])
@@ -59,12 +68,14 @@ def read_csindex(start_date, codes):
         df['360天均线'] = df['收盘Close'].rolling(360).mean()
         df['近一年均线'] = df['收盘Close'].rolling(year_days).mean()
         df = df[df['日期Date'] > start_time]
+        if end_time:
+            df = df[df['日期Date'] <= end_time]
         df.index = range(1, len(df['日期Date']) + 1)
         result.append(df)
     return result
 
 
-def simulate_render(deal_type=1, symbol1=None, symbol2=None, ratio_balance=None, ratio_deal=None):
+def simulate_image(deal_type=None, symbol1=None, symbol2=None, ratio_balance=None, balance_delta=None):
     if deal_type:
         init_config.update({'deal_type': deal_type})
     if symbol1:
@@ -73,74 +84,78 @@ def simulate_render(deal_type=1, symbol1=None, symbol2=None, ratio_balance=None,
         init_config.update({'symbol2': symbol2})
     if ratio_balance:
         init_config.update({'ratio_balance': ratio_balance})
-    if ratio_deal:
-        init_config.update({'ratio_deal': ratio_deal})
-    start = init_config.get('start')
+    if balance_delta:
+        init_config.update({'balance_delta': balance_delta})
     symbol1 = init_config.get('symbol1')
     symbol2 = init_config.get('symbol2')
-    [df, df2] = read_csindex(start, f"{symbol1},{symbol2}")
-    account = Account(init_config, df, df2)
+    [df1, df2] = read_csindex(f"{symbol1},{symbol2}")
+    df1 = df1[df1['日期Date'].isin(df2['日期Date'])]
+    df2 = df2[df2['日期Date'].isin(df1['日期Date'])]
+    account = Account(init_config, df1, df2)
     account.enable_log = True
     account.computed()
     account.render()
     print(json.dumps({
         'deal_type': init_config.get('deal_type'),
         'ratio_balance': init_config.get('ratio_balance'),
-        'ratio_deal': init_config.get('ratio_deal'),
+        'balance_delta': init_config.get('balance_delta'),
         'annual_grow': account.annual_grow(),
         'total_grow': computed_grow(account.z3[0], account.z3[-1]),
     }, ensure_ascii=False))
 
 
-# def simulate_range(conf_step, conf_ratio, range_step):
-#     start = init_config.get('start')
-#     symbol = init_config.get('symbol')
-#     deal_type = init_config.get('deal_type')
-#     [df] = read_csindex(start, symbol)
-#
-#     start_list = []
-#     symbol_list = []
-#     grid_step_list = []
-#     grid_ratio_list = []
-#     annual_grow_list = []
-#     ratio_avg_list = []
-#
-#     for grid_step in np.arange(conf_step[0], conf_step[1], range_step):
-#         for grid_ratio in np.arange(conf_ratio[0], conf_ratio[1], range_step):
-#             grid_step = float(grid_step)
-#             grid_ratio = float(grid_ratio)
-#             conf = {
-#                 'grid_step': grid_step,
-#                 'grid_ratio': grid_ratio,
-#             }
-#             init_config.update(conf)
-#             account = Account(init_config, df)
-#             account.enable_log = False
-#             account.computed()
-#             annual_grow = account.annual_grow()
-#             ratio_avg = round(float(np.mean(account.z1)), 2)
-#             symbol_list.append(symbol)
-#             start_list.append(start)
-#             grid_step_list.append(grid_step)
-#             grid_ratio_list.append(grid_ratio)
-#             annual_grow_list.append(annual_grow)
-#             ratio_avg_list.append(ratio_avg)
-#             print(json.dumps({
-#                 'grid_step': grid_step,
-#                 'grid_ratio': grid_ratio,
-#                 'annual_grow': annual_grow,
-#                 'ratio_avg': ratio_avg,
-#             }, ensure_ascii=False))
-#
-#     df = pd.DataFrame({
-#         'symbol': symbol_list,
-#         'start': start_list,
-#         'grid_step': grid_step_list,
-#         'grid_ratio': grid_ratio_list,
-#         'annual_grow': annual_grow_list,
-#         'ratio_avg': ratio_avg_list,
-#     })
-#     df.to_excel(f'../output/simulate_{symbol}_{start}_{deal_type}.xlsx')
+def simulate_range(conf_balance, conf_delta, range_step):
+    start = init_config.get('start')
+    deal_type = init_config.get('deal_type')
+    symbol1 = init_config.get('symbol1')
+    symbol2 = init_config.get('symbol2')
+    [df1, df2] = read_csindex(f"{symbol1},{symbol2}")
+    df1 = df1[df1['日期Date'].isin(df2['日期Date'])]
+    df2 = df2[df2['日期Date'].isin(df1['日期Date'])]
+
+    start_list = []
+    symbol_list = []
+    balance_list = []
+    delta_list = []
+    annual_grow_list = []
+    ratio_avg_list = []
+
+    for ratio_balance in np.arange(conf_balance[0], conf_balance[1], range_step):
+        for balance_delta in np.arange(conf_delta[0], conf_delta[1], range_step * 0.1):
+            ratio_balance = round(float(ratio_balance), 2)
+            balance_delta = round(float(balance_delta), 2)
+            conf = {
+                'ratio_balance': ratio_balance,
+                'balance_delta': balance_delta,
+            }
+            init_config.update(conf)
+            account = Account(init_config, df1, df2)
+            account.enable_log = False
+            account.computed()
+            annual_grow = account.annual_grow()
+            ratio_avg = round(float(np.mean(account.z1)), 2)
+            symbol_list.append(symbol1)
+            start_list.append(start)
+            balance_list.append(ratio_balance)
+            delta_list.append(balance_delta)
+            annual_grow_list.append(annual_grow)
+            ratio_avg_list.append(ratio_avg)
+            print(json.dumps({
+                'ratio_balance': ratio_balance,
+                'balance_delta': balance_delta,
+                'annual_grow': annual_grow,
+                'ratio_avg': ratio_avg,
+            }, ensure_ascii=False))
+
+    df = pd.DataFrame({
+        'symbol': symbol_list,
+        'start': start_list,
+        'balance': balance_list,
+        'delta': delta_list,
+        'annual_grow': annual_grow_list,
+        'ratio_avg': ratio_avg_list,
+    })
+    df.to_excel(f'../output/simulate_{symbol1}_{start}_{deal_type}.xlsx')
 
 
 class Account:
@@ -158,10 +173,10 @@ class Account:
         self.symbol1 = config.get('symbol1')
         self.symbol2 = config.get('symbol2')
         self.ratio_balance = config.get('ratio_balance')
-        self.ratio_deal = config.get('ratio_deal')
+        self.balance_delta = config.get('balance_delta')
         self.deal_type = config.get('deal_type')
 
-        self.inventory1 = computed_int_count(init_money * self.ratio_balance, price1)  # 初始持仓数量
+        self.inventory1 = computed_int_count(init_money * self.ratio_balance / 100, price1)  # 初始持仓数量
         self.money = init_money - self.inventory1 * price1  # 初始账户余额
 
         self.inventory2 = computed_int_count(self.money, price2)  # 初始持仓数量
@@ -205,13 +220,14 @@ class Account:
         ax1.plot_date(date_index, df1['收盘Close'], '-', label=symbol1, color="red")
         ax1.plot_date(date_index, [x * symbol2_ratio for x in df2['收盘Close']], '-', label=symbol2, color="orange")
         # ax1.plot_date(date_index, df['60天均线'], '--', label="60天均线", color="red")
-        ax1.plot_date(date_index, df1['180天均线'], '--', label="180天均线", color="red")
+        # ax1.plot_date(date_index, df1['180天均线'], '--', label="180天均线", color="red")
         # ax1.plot_date(date_index, df['360天均线'], '--', label="360天均线", color="darkred")
         # ax1.plot_date(date_index, [x * hs300_ratio for x in hs300df['收盘Close']], '-', label='000300', color="orange")
         ax1.plot_date(date_index, [x * amount_ratio for x in self.z3], '-', label="总资产", color="darkred")
 
         ax2 = ax1.twinx()
         ax2.plot_date(date_index, self.z1, '--', label="比例", color="darkblue")
+        ax2.plot_date(date_index, [self.ratio_balance for x in date_index], '--', label="比例", color="skyblue")
         # ax2.plot_date(date_index, [avg_year for d in date_index], '--', label="平均收益率", color="skyblue")
 
         # ax.xlabel('交易日')
@@ -222,10 +238,6 @@ class Account:
         ax1.grid(True)
         plt.savefig(f'../output/image_balance_{symbol1}_{self.start}_{self.deal_type}.png', bbox_inches='tight')
 
-    """
-        网格交易 根据标的最大波动幅度设置网格
-        根据均线优化网格
-    """
 
     def computed_type_1(self):
         date = self.df1['日期Date'].iloc[self.index]
@@ -234,27 +246,63 @@ class Account:
         total_money = self.total_amount()
 
         ratio1 = computed_ratio(self.inventory1 * price1, total_money)
-        ratio2 = computed_ratio(self.inventory2 * price2, total_money)
-        if ratio1 >= self.ratio_deal or ratio2 >= self.ratio_deal:
+        # ratio2 = computed_ratio(self.inventory2 * price2, total_money)
+        delta_count1 = 0
+        delta_count2 = 0
+        if ratio1 >= self.ratio_balance + self.balance_delta or ratio1 < self.ratio_balance - self.balance_delta:
             # 资产涨幅较大，卖出
-            inventory1 = computed_int_count(total_money * self.ratio_balance, price1)
+            inventory1 = computed_int_count(total_money * self.ratio_balance / 100, price1)
             money_left = total_money - inventory1 * price1
             inventory2 = computed_int_count(money_left, price2)
             self.money = money_left - inventory2 * price2
-            delta_count1 = self.inventory1 - inventory1
-            delta_count2 = self.inventory2 - inventory2
+            delta_count1 = inventory1 - self.inventory1
+            delta_count2 = inventory2 - self.inventory2
+            self.inventory1 = inventory1
+            self.inventory2 = inventory2
+
+        if self.enable_log and delta_count1 != 0:
+        # if self.enable_log:
+            print(json.dumps({
+                'date': date.strftime('%Y%m%d'),
+                'ratio1': ratio1,
+                'price1': price1,
+                'delta_count1': delta_count1,
+                'price2': price2,
+                'delta_count2': delta_count2,
+            }, ensure_ascii=False))
+        ratio1 = computed_ratio(self.inventory1 * price1, total_money)
+
+        self.z1.append(ratio1)
+        self.z2.append(self.money)
+        self.z3.append(total_money)
+
+    def computed_type_2(self):
+        date = self.df1['日期Date'].iloc[self.index]
+        price1 = self.df1['收盘Close'].iloc[self.index]
+        price2 = self.df2['收盘Close'].iloc[self.index]
+        total_money = self.total_amount()
+
+        ratio1 = computed_ratio(self.inventory1 * price1, total_money)
+        # ratio2 = computed_ratio(self.inventory2 * price2, total_money)
+        if ratio1 >= self.ratio_balance + self.balance_delta or ratio1 < self.ratio_balance - self.balance_delta * 1.3:
+            # 资产涨幅较大，卖出
+            inventory1 = computed_int_count(total_money * self.ratio_balance / 100, price1)
+            money_left = total_money - inventory1 * price1
+            inventory2 = computed_int_count(money_left, price2)
+            self.money = money_left - inventory2 * price2
+            delta_count1 = inventory1 - self.inventory1
+            delta_count2 = inventory2 - self.inventory2
             self.inventory1 = inventory1
             self.inventory2 = inventory2
             if self.enable_log:
                 print(json.dumps({
                     'date': date.strftime('%Y%m%d'),
+                    'ratio1': ratio1,
                     'price1': price1,
                     'delta_count1': delta_count1,
                     'price2': price2,
                     'delta_count2': delta_count2,
                 }, ensure_ascii=False))
-        else:
-            pass
 
         ratio1 = computed_ratio(self.inventory1 * price1, total_money)
 
@@ -265,15 +313,20 @@ class Account:
 
 init_config = {
     'init_money': 100_0000_0000,
-    'start': '20141216',
-    'symbol1': '000300',
-    # 'symbol': '000905',
-    # 'symbol': '000852',
-    'symbol2': 'H20269',
-    'ratio_balance': 0.5,
-    'ratio_deal': 70,
+    'start': '20141201',
+    'end': '20241201',
+    # 'symbol1': '000300',
+    'symbol1': 'H20269',
+    # 'symbol2': '000905',
+    # 'symbol2': '000852',
+    'symbol2': '000012',
+    # 'symbol2': '931080',
+    'ratio_balance': 50,
+    'balance_delta': 60,
     'deal_type': 1,  # 按总资产的百分比网格
 }
 
 if __name__ == '__main__':
-    simulate_render(deal_type=1, symbol1='000300', symbol2='H20269', ratio_balance=0.5, ratio_deal=60)
+    # simulate_range((40, 50), (5, 10), 1)
+    # simulate_image(deal_type=1, ratio_balance=50, balance_delta=5)
+    simulate_image(deal_type=1, ratio_balance=60, balance_delta=10)

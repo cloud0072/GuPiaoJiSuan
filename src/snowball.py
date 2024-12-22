@@ -98,6 +98,9 @@ def download(symbols, start_date):
         df = pd.DataFrame(kline.get('item'), columns=kline.get('column'))
         df['日期Date'] = [datetime.fromtimestamp(t / 1000).strftime('%Y%m%d') for t in df['timestamp']]
         df['收盘Close'] = df['close']
+        df['开盘Open'] = df['open']
+        df['最高High'] = df['high']
+        df['最低Low'] = df['low']
         df['指数代码Index Code'] = [symbol for i in df['close']]
         with pd.ExcelWriter(f'../data/download_{symbol}.xlsx') as writer:
             columns = ['日期Date', '指数代码Index Code', '收盘Close']
