@@ -54,11 +54,9 @@ def read_csindex(start_date, codes):
     for code in codes.split(','):
         df = pd.read_excel(f'../data/download_{code}.xlsx', usecols=['日期Date', '收盘Close', '最高High', '最低Low'])
         df['日期Date'] = pd.to_datetime(df['日期Date'], format=date_format)
-        df['60天均线'] = df['收盘Close'].rolling(60).mean()
         df['180天均线'] = df['收盘Close'].rolling(180).mean()
-        df['360天均线'] = df['收盘Close'].rolling(360).mean()
         df['近一年均线'] = df['收盘Close'].rolling(year_days).mean()
-        df['近一年收益率'] = computed_annualized(df['收盘Close'], year_days)
+        df['近两年均线'] = df['收盘Close'].rolling(year_days * 2).mean()
         df = df[df['日期Date'] > start_time]
         df.index = range(1, len(df['日期Date']) + 1)
         result.append(df)
@@ -85,6 +83,7 @@ def simulate_render(grid_step=None, grid_ratio=None, deal_type=None, symbol=None
         'grid_step': init_config.get('grid_step'),
         'grid_ratio': init_config.get('grid_ratio'),
         'annual_grow': account.annual_grow(),
+        'ratio_avg': round(float(np.mean(account.z1)), 2),
         'index_grow': computed_grow(account.df['收盘Close'].iloc[0], account.df['收盘Close'].iloc[-1]),
         'total_grow': computed_grow(account.z3[0], account.z3[-1]),
     }, ensure_ascii=False))
@@ -185,6 +184,8 @@ class Account:
                 self.computed_avg_next5()
             elif self.deal_type == 6:
                 self.computed_avg_next6()
+            else:
+                raise SystemError('未找到合适的策略')
             self.index = self.index + 1
         self.index = self.index - 1
 
@@ -192,19 +193,17 @@ class Account:
         df = self.df
         date_index = df['日期Date']
         amount_ratio = df['收盘Close'].iloc[0] / self.z3[0]
-        avg_year = df['近一年收益率'].mean()
 
         fig, ax1 = plt.subplots(figsize=(4 * 10, 4))
         ax1.plot_date(date_index, df['收盘Close'], '-', label=self.symbol, color="red")
-        ax1.plot_date(date_index, df['60天均线'], '--', label="60天均线", color="red")
         # ax1.plot_date(date_index, df['180天均线'], '--', label="180天均线", color="red")
-        ax1.plot_date(date_index, df['360天均线'], '--', label="360天均线", color="darkred")
+        # ax1.plot_date(date_index, df['近一年均线'], '--', label="近一年均线", color="red")
+        ax1.plot_date(date_index, df['近两年均线'], '--', label="近两年均线", color="red")
         # ax1.plot_date(date_index, [x * hs300_ratio for x in hs300df['收盘Close']], '-', label='000300', color="orange")
         ax1.plot_date(date_index, [x * amount_ratio for x in self.z3], '-', label="总资产", color="darkred")
 
         ax2 = ax1.twinx()
         ax2.plot_date(date_index, self.z1, '--', label="比例", color="darkblue")
-        # ax2.plot_date(date_index, df['近一年收益率'], '--', label="近一年收益率", color="skyblue")
         # ax2.plot_date(date_index, [avg_year for d in date_index], '--', label="平均收益率", color="skyblue")
 
         # ax.xlabel('交易日')
@@ -275,8 +274,8 @@ class Account:
         price_high = price_close if np.isnan(price_high) else price_high
         price_low = self.df['最低Low'].iloc[self.index]
         price_low = price_close if np.isnan(price_low) else price_low
-        avg = self.df['180天均线'].iloc[self.index]
-        # avg = self.df['360天均线'].iloc[self.index]  # 360
+        # avg = self.df['180天均线'].iloc[self.index]
+        avg = self.df['近一年均线'].iloc[self.index]
         total_money = self.total_amount()
         grid_value = self.grid_value
         grid_step = self.grid_step
@@ -317,8 +316,72 @@ class Account:
                         'date': date.strftime('%Y%m%d'),
                         'price': self.grid_value,
                         'count_delta': count_delta,
-                        'factor': factor,
-                        'n': n,
+                        'factor': round(factor, 2),
+                        'n': round(n, 2),
+                        'avg': round(avg, 2),
+                    }, ensure_ascii=False))
+        except Exception as e:
+            print(e)
+
+        total_money = self.total_amount()
+        ratio = computed_ratio(self.money, total_money)
+
+        self.z1.append(ratio)
+        self.z2.append(self.money)
+        self.z3.append(total_money)
+
+    # 按持仓比例买卖
+    def computed_avg_next6(self):
+        date = self.df['日期Date'].iloc[self.index]
+        price_close = self.df['收盘Close'].iloc[self.index]
+        price_high = self.df['最高High'].iloc[self.index]
+        price_high = price_close if np.isnan(price_high) else price_high
+        price_low = self.df['最低Low'].iloc[self.index]
+        price_low = price_close if np.isnan(price_low) else price_low
+        # avg = self.df['180天均线'].iloc[self.index]
+        avg = self.df['近两年均线'].iloc[self.index]
+        total_money = self.total_amount()
+        grid_value = self.grid_value
+        grid_step = self.grid_step
+        grid_ratio = self.grid_ratio
+
+        ratio = computed_ratio(self.money, total_money)
+        price_sell = round(grid_value * (100 + grid_step) / 100, 2)
+        price_buy = round(grid_value * (100 - grid_step) / 100, 2)
+        n = 0
+        if price_sell <= price_high and self.inventory > 0:
+            # 大于网格卖出
+            self.grid_value = price_sell  # 成交价设置为新的网格价
+            # 均线高于价格 正常卖出
+            # 均线低于价格 增加偏离值的卖出量
+            delta = round((price_sell - avg) / avg, 2) if avg < price_sell else 0
+            n = 1 + delta * 2  # 设置影响因子 - 卖出价大于均线比例越高则卖出越多，卖出价小于均线则降低
+            factor = ratio - grid_ratio * n
+        elif price_low <= price_buy and self.money > 100 * price_buy:
+            # 低于网格买入
+            self.grid_value = price_buy
+            # 均线高于价格 增加偏离值的买入出量
+            # 均线低于价格 正常买入
+            delta = round((avg - price_buy) / price_buy, 2) if avg > price_buy else 0
+            n = 1 + delta * 4  # 设置影响因子 - 卖出价大于均线比例越高则卖出越多，卖出价小于均线则降低
+            factor = ratio + grid_ratio * n
+        else:
+            factor = ratio
+        try:
+            if factor != ratio:
+                factor = 0 if factor < 0 else 100 if factor > 100 else factor  # 买卖超过持仓最大最小值时进行修正
+                money_delta = self.money - total_money * (1 - factor / 100)
+                count_delta = computed_int_count(money_delta, self.grid_value)
+                self.inventory = self.inventory + count_delta
+                self.money = self.money - count_delta * self.grid_value
+
+                if self.enable_log:
+                    print(json.dumps({
+                        'date': date.strftime('%Y%m%d'),
+                        'price': self.grid_value,
+                        'count_delta': count_delta,
+                        'factor': round(factor, 2),
+                        'n': round(n, 2),
                         'avg': round(avg, 2),
                     }, ensure_ascii=False))
         except Exception as e:
@@ -350,29 +413,25 @@ etfs = [
     ('红利低波ETF', '512890'),
 ]
 init_config = {
-    'symbol': '000300',
-    # 'symbol': '000905',
+    # 'symbol': '000300',
+    'symbol': '000905',
     # 'symbol': '000852',
     # 'symbol': 'H20269',
     'start': '20141216',
     'init_money': 100_0000_0000,
     'init_percent': 1,
-    # 'deal_type': 1,  # 按总资产的百分比网格
-    # 'deal_type': 2,  # 按总资产百分比做网格，加入超卖超买影响因子，越跌越买
-    # 'deal_type': 3,  # 按总资产百分比做网格，加入超卖超买影响因子 * 1.5 ，越跌越买
+    'deal_type': 1,  # 按总资产的百分比网格
     # 'deal_type': 5,  # 按总资产百分比做网格，加入超卖超买影响因子 * 1.5 ，越跌越买 使用60周均线
-    'deal_type': 6,  # 按固定股数做网格
+    # 'deal_type': 6,  # 按总资产百分比做网格，加入超卖超买影响因子 * 1.5 ，越跌越买 使用60周均线
     'grid_step': 5,
     'grid_ratio': 10,
 }
 
 if __name__ == '__main__':
 
-    # simulate_render(grid_step=28, grid_ratio=31, deal_type=3, symbol='000905')
-    # simulate_render(grid_step=29, grid_ratio=20, deal_type=3, symbol='000852')
-    # simulate_render(grid_step=9, grid_ratio=1, deal_type=3, symbol='H20269')
-    # simulate_render(grid_step=15, grid_ratio=16, deal_type=3, symbol='000300')  # 因子 *5
-    # simulate_render(grid_step=11, grid_ratio=19, deal_type=4, symbol='000300')  # 因子 *5
-    # simulate_render(grid_step=12, grid_ratio=19, deal_type=5, symbol='000300')  # 因子 *5
-    # simulate_render(grid_step=13, grid_ratio=9, deal_type=5, symbol='000852')  # 因子 *5
-    simulate_range((1, 10), (15, 35), 1)  # type 4
+    # simulate_render(grid_step=11, grid_ratio=27, deal_type=1, symbol='000300')  # 6.46
+    # simulate_render(grid_step=14, grid_ratio=22, deal_type=1, symbol='000905')  # 6.6
+    # simulate_render(grid_step=12, grid_ratio=27, deal_type=5, symbol='000300')  # 8.15
+    # simulate_render(grid_step=14, grid_ratio=29, deal_type=6, symbol='000300')  # 6.89
+    # simulate_render(grid_step=13, grid_ratio=13, deal_type=6, symbol='000905')  # 7.37
+    simulate_range((5, 20), (10, 30), 1)  # type 4

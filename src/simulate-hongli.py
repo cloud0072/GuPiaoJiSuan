@@ -252,9 +252,7 @@ class Account:
     def computed_annual_next1(self):
         date = self.df['日期Date'].iloc[self.index]
         price = self.df['收盘Close'].iloc[self.index]  # 获取当天收盘价
-        # annual = self.df['近6月收益率'].iloc[self.index]
         annual = self.df['近一年收益率'].iloc[self.index]
-        # annual = self.df['近两年收益率'].iloc[self.index]
         total_money = self.total_amount()
         annual_sell = self.annual_sell
         annual_buy = self.annual_buy
@@ -295,8 +293,6 @@ class Account:
         date = self.df['日期Date'].iloc[self.index]
         price = self.df['收盘Close'].iloc[self.index]  # 获取当天收盘价
         annual = self.df['近6月收益率'].iloc[self.index]
-        # annual = self.df['近一年收益率'].iloc[self.index]
-        # annual = self.df['近两年收益率'].iloc[self.index]
         total_money = self.total_amount()
         annual_sell = self.annual_sell
         annual_buy = self.annual_buy
@@ -337,10 +333,8 @@ class Account:
     def computed_annual_next3(self):
         date = self.df['日期Date'].iloc[self.index]
         price = self.df['收盘Close'].iloc[self.index]  # 获取当天收盘价
-        # annual = self.df['近6月收益率'].iloc[self.index]
-        annual = self.df['近一年收益率'].iloc[self.index]
+        annual = self.df['近6月收益率'].iloc[self.index]
         annual_300 = self.hs300df['近一年收益率'].iloc[self.index]
-        # annual = self.df['近两年收益率'].iloc[self.index]
         total_money = self.total_amount()
         # 控制因子不超过前值的20% 约2 则
         hs300_i = 2 if annual_300 * init_config.get('hs300_ratio') > 2 else annual_300 * init_config.get('hs300_ratio')
@@ -410,12 +404,9 @@ init_config = {
 }
 
 if __name__ == '__main__':
-    # simulate_render(symbol='H20269', deal_type=1, annual_sell=19, annual_buy=9, hs300_ratio=0)  # 年化 24 持仓时长67
-    # simulate_render(symbol='H20269', deal_type=1, annual_sell=17, annual_buy=9, hs300_ratio=0)  # 年化 23.7 持仓时长63.4
-    # simulate_render(symbol='H20955', deal_type=1, annual_sell=16, annual_buy=8, hs300_ratio=0)  # 年化 23 持仓时长66
-    # simulate_render(symbol='000300', deal_type=1, annual_sell=29, annual_buy=-7, hs300_ratio=0)  # 年化 5.6 持仓时长66
-    # simulate_render(symbol='000852', deal_type=1, annual_sell=40, annual_buy=-24, hs300_ratio=0)  # 年化 5.6 持仓时长66
-    # simulate_render(symbol='H20269', deal_type=2, annual_sell=19, annual_buy=-3, hs300_ratio=0)  # 年化 26 持仓时长68
-    # simulate_render(symbol='H20955', deal_type=2, annual_sell=10, annual_buy=5, hs300_ratio=0)  # 年化 17 持仓时长63
-    # simulate_render(symbol='515080', deal_type=2, annual_sell=10, annual_buy=8, hs300_ratio=0)  # 年化 17.7 持仓时长89
+    # simulate_render(symbol='H20269', deal_type=1, annual_sell=19, annual_buy=9)  # 年化 24 持仓时长67
+    # simulate_render(symbol='H20269', deal_type=1, annual_sell=17, annual_buy=9)  # 年化 23.7 持仓时长63.4
+    # simulate_render(symbol='H20269', deal_type=2, annual_sell=19, annual_buy=-3)  # 年化 26 持仓时长68
+    # simulate_render(symbol='H20955', deal_type=2, annual_sell=10, annual_buy=5)  # 年化 17 持仓时长63
+    # simulate_render(symbol='515080', deal_type=2, annual_sell=10, annual_buy=8)  # 年化 17.7 持仓时长89
     simulate_range((20, 40), (-20, 0), 1)

@@ -31,8 +31,8 @@ def computed_grow(start, end):
     return round((end - start) / start * 100, 2)
 
 
-def computed_ratio(start, end):
-    return round((end - start) / end * 100, 2)
+def computed_ratio(money, total):
+    return round(money / total * 100, 2)
 
 
 # 年化收益 每年交易日约等于243天
@@ -48,18 +48,20 @@ def computed_annualized(series, days):
     return data_list
 
 
-def read_csindex(start_date, codes):
-    start_time = pd.to_datetime(start_date, format=date_format)
+def read_csindex(codes):
+    start = init_config.get('start')
+    end = init_config.get('end')
+    start_time = pd.to_datetime(start, format=date_format)
+    end_time = pd.to_datetime(end, format=date_format) if end else None
     result = []
     for code in codes.split(','):
         df = pd.read_excel(f'../data/download_{code}.xlsx', usecols=['日期Date', '收盘Close', '最高High', '最低Low'])
         df['日期Date'] = pd.to_datetime(df['日期Date'], format=date_format)
-        df['60天均线'] = df['收盘Close'].rolling(60).mean()
         df['180天均线'] = df['收盘Close'].rolling(180).mean()
-        df['360天均线'] = df['收盘Close'].rolling(360).mean()
         df['近一年均线'] = df['收盘Close'].rolling(year_days).mean()
-        df['近一年收益率'] = computed_annualized(df['收盘Close'], year_days)
         df = df[df['日期Date'] > start_time]
+        if end_time:
+            df = df[df['日期Date'] <= end_time]
         df.index = range(1, len(df['日期Date']) + 1)
         result.append(df)
     return result
@@ -74,9 +76,8 @@ def simulate_render(grid_step=None, grid_count=None, deal_type=None, symbol=None
         init_config.update({'deal_type': deal_type})
     if symbol:
         init_config.update({'symbol': symbol})
-    start = init_config.get('start')
     symbol = init_config.get('symbol')
-    [df] = read_csindex(start, symbol)
+    [df] = read_csindex(symbol)
     account = Account(init_config, df)
     account.enable_log = True
     account.computed()
@@ -85,6 +86,7 @@ def simulate_render(grid_step=None, grid_count=None, deal_type=None, symbol=None
         'grid_step': init_config.get('grid_step'),
         'grid_count': init_config.get('grid_count') * 20000,
         'annual_grow': account.annual_grow(),
+        'ratio_avg': round(float(np.mean(account.z1)), 2),
         'index_grow': computed_grow(account.df['收盘Close'].iloc[0], account.df['收盘Close'].iloc[-1]),
         'total_grow': computed_grow(account.z3[0], account.z3[-1]),
     }, ensure_ascii=False))
@@ -94,9 +96,8 @@ def simulate_range(conf_step, conf_count, range_step):
     start = init_config.get('start')
     symbol = init_config.get('symbol')
     deal_type = init_config.get('deal_type')
-    [df] = read_csindex(start, symbol)
+    [df] = read_csindex(symbol)
 
-    start_list = []
     symbol_list = []
     grid_step_list = []
     grid_count_list = []
@@ -118,7 +119,6 @@ def simulate_range(conf_step, conf_count, range_step):
             annual_grow = account.annual_grow()
             ratio_avg = round(float(np.mean(account.z1)), 2)
             symbol_list.append(symbol)
-            start_list.append(start)
             grid_step_list.append(grid_step)
             grid_count_list.append(grid_count)
             annual_grow_list.append(annual_grow)
@@ -132,7 +132,6 @@ def simulate_range(conf_step, conf_count, range_step):
 
     df = pd.DataFrame({
         'symbol': symbol_list,
-        'start': start_list,
         'grid_step': grid_step_list,
         'grid_count': grid_count_list,
         'annual_grow': annual_grow_list,
@@ -181,6 +180,8 @@ class Account:
         for d in date_index:
             if self.deal_type == 1:
                 self.computed_avg_next1()
+            if self.deal_type == 2:
+                self.computed_avg_next2()
             self.index = self.index + 1
         self.index = self.index - 1
 
@@ -188,19 +189,15 @@ class Account:
         df = self.df
         date_index = df['日期Date']
         amount_ratio = df['收盘Close'].iloc[0] / self.z3[0]
-        avg_year = df['近一年收益率'].mean()
 
         fig, ax1 = plt.subplots(figsize=(4 * 10, 4))
         ax1.plot_date(date_index, df['收盘Close'], '-', label=self.symbol, color="red")
-        ax1.plot_date(date_index, df['60天均线'], '--', label="60天均线", color="red")
-        # ax1.plot_date(date_index, df['180天均线'], '--', label="180天均线", color="red")
-        ax1.plot_date(date_index, df['360天均线'], '--', label="360天均线", color="darkred")
+        ax1.plot_date(date_index, df['180天均线'], '--', label="180天均线", color="red")
         # ax1.plot_date(date_index, [x * hs300_ratio for x in hs300df['收盘Close']], '-', label='000300', color="orange")
         ax1.plot_date(date_index, [x * amount_ratio for x in self.z3], '-', label="总资产", color="darkred")
 
         ax2 = ax1.twinx()
         ax2.plot_date(date_index, self.z1, '--', label="比例", color="darkblue")
-        # ax2.plot_date(date_index, df['近一年收益率'], '--', label="近一年收益率", color="skyblue")
         # ax2.plot_date(date_index, [avg_year for d in date_index], '--', label="平均收益率", color="skyblue")
 
         # ax.xlabel('交易日')
@@ -216,7 +213,6 @@ class Account:
         根据均线优化网格
     """
 
-    # 按固定股数买卖 越涨越卖， 越跌买的越少
     def computed_avg_next1(self):
         date = self.df['日期Date'].iloc[self.index]
         price_close = self.df['收盘Close'].iloc[self.index]
@@ -230,7 +226,7 @@ class Account:
         grid_step = self.grid_step
         grid_count = self.grid_count * 20000
 
-        ratio = computed_ratio(self.money, total_money)
+        ratio = computed_ratio(self.inventory * price_close, total_money)
         price_sell = round(grid_value * (100 + grid_step) / 100, 2)
         price_buy = round(grid_value * (100 - grid_step) / 100, 2)
         count_delta = 0
@@ -252,7 +248,7 @@ class Account:
                 self.inventory = self.inventory + count_delta
                 self.money = self.money - count_delta * price_buy
 
-        factor = computed_ratio(self.money, total_money)
+        factor = computed_ratio(self.inventory * price_close, total_money)
 
         try:
             if self.enable_log and count_delta != 0:
@@ -267,43 +263,89 @@ class Account:
             print(e)
 
         total_money = self.total_amount()
-        ratio = computed_ratio(self.money, total_money)
+        ratio = computed_ratio(self.inventory * price_close, total_money)
+
+        self.z1.append(ratio)
+        self.z2.append(self.money)
+        self.z3.append(total_money)
+
+    # 仓位越低买的越多
+    def computed_avg_next2(self):
+        date = self.df['日期Date'].iloc[self.index]
+        price_close = self.df['收盘Close'].iloc[self.index]
+        price_high = self.df['最高High'].iloc[self.index]
+        price_high = price_close if np.isnan(price_high) else price_high
+        price_low = self.df['最低Low'].iloc[self.index]
+        price_low = price_close if np.isnan(price_low) else price_low
+        avg = self.df['180天均线'].iloc[self.index]
+        total_money = self.total_amount()
+        grid_value = self.grid_value
+        grid_step = self.grid_step
+        grid_count = self.grid_count * 20000
+
+        ratio = computed_ratio(self.inventory * price_close, total_money)
+
+        price_sell = round(grid_value * (100 + grid_step) / 100, 2)
+        price_buy = round(grid_value * (100 - grid_step) / 100, 2)
+        count_delta = 0
+        if price_sell <= price_high and self.inventory > 0:
+            # 大于网格卖出
+            # 大于持仓则全部卖出
+            grid_count = round(grid_count * (100 + ratio) / 20000, 0) * 100
+            count_delta = -grid_count if self.inventory > grid_count else -self.inventory
+            if count_delta < 0:
+                self.grid_value = price_sell  # 成交价设置为新的网格价
+                self.inventory = self.inventory + count_delta
+                self.money = self.money - count_delta * price_sell
+        elif price_low <= price_buy and ratio < 100:
+            # 低于网格买入
+            # 大于可买金额则全部买入
+            grid_count = round(grid_count * (200 - ratio) / 20000, 0) * 100
+            count_delta = grid_count if self.money > grid_count * price_buy \
+                else computed_int_count(self.money, price_buy)
+            if count_delta > 0:
+                self.grid_value = price_buy
+                self.inventory = self.inventory + count_delta
+                self.money = self.money - count_delta * price_buy
+
+        factor = computed_ratio(self.inventory * price_close, total_money)
+
+        try:
+            if self.enable_log and count_delta != 0:
+                print(json.dumps({
+                    'date': date.strftime('%Y%m%d'),
+                    'price': self.grid_value,
+                    'count_delta': count_delta,
+                    'factor': factor,
+                    'avg': round(avg, 2),
+                }, ensure_ascii=False))
+        except Exception as e:
+            print(e)
+
+        total_money = self.total_amount()
+        ratio = computed_ratio(self.inventory * price_close, total_money)
 
         self.z1.append(ratio)
         self.z2.append(self.money)
         self.z3.append(total_money)
 
 
-symbols = [
-    ('沪深300', '000300'),
-    ('中证500', '000905'),
-    ('中证1000', '000852'),
-    ('红利低波全收益', 'H20269'),
-    ('红利低波100全收益', 'H20955'),
-    ('中证红利', '000922CNY020'),
-    ('港股通高股息', '930914CNY220'),
-    ('香港红利', '932335'),
-    ('沪港深红利低波', '930993'),
-    ('沪港深高股息100', '921445'),
-    ('香港海外高股息', 'H20908'),
-]
-etfs = [
-    ('中证红利ETF', '515080'),
-    ('红利低波ETF', '512890'),
-]
 init_config = {
+    'start': '20141201',
+    'end': '20241201',
     'symbol': '000300',
     # 'symbol': '000905',
     # 'symbol': '000852',
     # 'symbol': 'H20269',
-    'start': '20141216',
     'init_money': 100_0000_0000,
     'init_percent': 1,
-    'deal_type': 1,  # 按总资产的百分比网格
+    # 'deal_type': 1,  # 按总资产的百分比网格
+    'deal_type': 2,  # 按总资产的百分比网格
     'grid_step': 5,
     'grid_count': 33
 }
 
 if __name__ == '__main__':
-    simulate_render(grid_step=7, grid_count=33, deal_type=1, symbol='000300')  # 因子 *5
-    # simulate_range((1, 10), (15, 35), 1)  # type 4
+    simulate_render(grid_step=10, grid_count=29, deal_type=1, symbol='000300')  # 因子 *5
+    # simulate_render(grid_step=12, grid_count=34, deal_type=2, symbol='000300')  # 5.2
+    # simulate_range((5, 20), (15, 35), 1)  # type 4
