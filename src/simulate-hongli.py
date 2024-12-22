@@ -69,7 +69,7 @@ def read_snowball(start_date, codes):
     start_time = pd.to_datetime(start_date, format=date_format)
     result = []
     for code in codes.split(','):
-        df = pd.read_excel(f'../data/snowball_SH{code}.xlsx', usecols=['日期Date', '收盘Close'])
+        df = pd.read_excel(f'../data/download_SH{code}.xlsx', usecols=['日期Date', '收盘Close'])
         df['日期Date'] = pd.to_datetime(df['日期Date'], format=date_format)
         df['180天均线'] = df['收盘Close'].rolling(180).mean()
         df['近6月收益率'] = computed_annualized(df['收盘Close'], int(year_days / 2))

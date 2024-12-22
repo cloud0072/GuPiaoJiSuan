@@ -58,6 +58,8 @@ example_symbols = [
     ('SH563300', '中证2000ETF', 1.144),
     ('SH600938', '中国海油'),
     ('01810', '小米集团'),
+    ('515080', '中证红利ETF',),
+    ('512890', '红利低波ETF',),
 ]
 
 example_color = [
@@ -97,7 +99,7 @@ def download(symbols, start_date):
         df['日期Date'] = [datetime.fromtimestamp(t / 1000).strftime('%Y%m%d') for t in df['timestamp']]
         df['收盘Close'] = df['close']
         df['指数代码Index Code'] = [symbol for i in df['close']]
-        with pd.ExcelWriter(f'../data/snowball_{symbol}.xlsx') as writer:
+        with pd.ExcelWriter(f'../data/download_{symbol}.xlsx') as writer:
             columns = ['日期Date', '指数代码Index Code', '收盘Close']
             df.to_excel(writer, index=False, sheet_name='Data', columns=columns)
 

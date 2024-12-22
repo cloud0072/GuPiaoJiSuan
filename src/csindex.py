@@ -6,6 +6,21 @@ import requests
 中证官网下载
 """
 
+symbols = [
+    ('国债指数', '000012'),
+    ('30年国债', '931080'),
+    ('沪深300', '000300'),
+    ('中证500', '000905'),
+    ('中证1000', '000852'),
+    ('红利低波全收益', 'H20269'),
+    ('红利低波100全收益', 'H20955'),
+    ('中证红利', '000922CNY020'),
+    ('港股通高股息', '930914CNY220'),
+    ('香港红利', '932335'),
+    ('沪港深红利低波', '930993'),
+    ('沪港深高股息100', '921445'),
+    ('香港海外高股息', 'H20908'),
+]
 
 def download_file(code, start_date):
     print('request %s' % code)
@@ -29,10 +44,12 @@ def download_file(code, start_date):
                 f.write(chunk)
 
 
-download_file("000300", '20130101')
-download_file("000510", '20130101')
-download_file("000852", '20130101')
-download_file("000905", '20130101')
-download_file("H20269", '20130101')
-download_file("H20955", '20130101')
-download_file("000922CNY020", '20130101')
+download_file("000012", '20130101')
+download_file("931080", '20130101')
+# download_file("000300", '20130101')
+# download_file("000510", '20130101')
+# download_file("000852", '20130101')
+# download_file("000905", '20130101')
+# download_file("H20269", '20130101')
+# download_file("H20955", '20130101')
+# download_file("000922CNY020", '20130101')
