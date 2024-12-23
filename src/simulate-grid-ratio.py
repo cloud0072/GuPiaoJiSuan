@@ -137,7 +137,7 @@ def simulate_range(conf_step, conf_ratio, range_step):
         'annual_grow': annual_grow_list,
         'ratio_avg': ratio_avg_list,
     })
-    df.to_excel(f'../output/simulate_{symbol}_{start}_{deal_type}.xlsx')
+    df.to_excel(f'../output/simulate_grid_ratio_{symbol}_{start}_{deal_type}.xlsx')
 
 
 class Account:
@@ -212,7 +212,7 @@ class Account:
         # ax.xaxis.set_major_locator(mdates.DayLocator())
 
         ax1.grid(True)
-        plt.savefig(f'../output/image_grid_{self.symbol}_{self.start}_{self.deal_type}.png', bbox_inches='tight')
+        plt.savefig(f'../output/image_grid_ratio_{self.symbol}_{self.start}_{self.deal_type}.png', bbox_inches='tight')
 
     """
         网格交易 根据标的最大波动幅度设置网格
@@ -266,7 +266,7 @@ class Account:
         self.z2.append(self.money)
         self.z3.append(total_money)
 
-    # 按持仓比例买卖
+    # 按持仓比例买卖  参考近一年均线
     def computed_avg_next5(self):
         date = self.df['日期Date'].iloc[self.index]
         price_close = self.df['收盘Close'].iloc[self.index]
@@ -330,7 +330,7 @@ class Account:
         self.z2.append(self.money)
         self.z3.append(total_money)
 
-    # 按持仓比例买卖
+    # 按持仓比例买卖 参考近两年均线
     def computed_avg_next6(self):
         date = self.df['日期Date'].iloc[self.index]
         price_close = self.df['收盘Close'].iloc[self.index]

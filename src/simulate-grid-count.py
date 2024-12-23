@@ -14,6 +14,10 @@ plt.switch_backend('TkAgg')
 date_format = '%Y%m%d'
 year_days = 244
 
+"""
+网格最大的问题就是在涨幅过大的时候无法获得上涨的收益
+
+"""
 
 def find_value(array, key, value):
     for item in array:
@@ -137,7 +141,7 @@ def simulate_range(conf_step, conf_count, range_step):
         'annual_grow': annual_grow_list,
         'ratio_avg': ratio_avg_list,
     })
-    df.to_excel(f'../output/simulate_{symbol}_{start}_{deal_type}.xlsx')
+    df.to_excel(f'../output/simulate_grid_count_{symbol}_{start}_{deal_type}.xlsx')
 
 
 class Account:
@@ -180,8 +184,12 @@ class Account:
         for d in date_index:
             if self.deal_type == 1:
                 self.computed_avg_next1()
-            if self.deal_type == 2:
+            elif self.deal_type == 2:
                 self.computed_avg_next2()
+            elif self.deal_type == 3:
+                self.computed_avg_next3()
+            else:
+                raise SystemError('未找到合适的策略')
             self.index = self.index + 1
         self.index = self.index - 1
 
@@ -206,7 +214,7 @@ class Account:
         # ax.xaxis.set_major_locator(mdates.DayLocator())
 
         ax1.grid(True)
-        plt.savefig(f'../output/image_grid_{self.symbol}_{self.start}_{self.deal_type}.png', bbox_inches='tight')
+        plt.savefig(f'../output/image_grid_count_{self.symbol}_{self.start}_{self.deal_type}.png', bbox_inches='tight')
 
     """
         网格交易 根据标的最大波动幅度设置网格
@@ -329,6 +337,67 @@ class Account:
         self.z2.append(self.money)
         self.z3.append(total_money)
 
+    # 按持均线偏离买卖  参考近一年均线
+    def computed_avg_next3(self):
+        date = self.df['日期Date'].iloc[self.index]
+        price_close = self.df['收盘Close'].iloc[self.index]
+        price_high = self.df['最高High'].iloc[self.index]
+        price_high = price_close if np.isnan(price_high) else price_high
+        price_low = self.df['最低Low'].iloc[self.index]
+        price_low = price_close if np.isnan(price_low) else price_low
+        avg = self.df['近一年均线'].iloc[self.index]
+        total_money = self.total_amount()
+        grid_value = self.grid_value
+        grid_step = self.grid_step
+        grid_count = self.grid_count * 20000
+
+        ratio = computed_ratio(self.inventory * price_close, total_money)
+        price_sell = round(grid_value * (100 + grid_step) / 100, 2)
+        price_buy = round(grid_value * (100 - grid_step) / 100, 2)
+        count_delta = 0
+        if price_sell <= price_high and self.inventory > 0:
+            # 大于网格卖出
+            n = round((price_sell - avg) / avg * 2 * grid_count, 2) if price_sell > avg else 0
+            grid_count = grid_count + n
+            # 大于持仓则全部卖出
+            count_delta = -grid_count if self.inventory > grid_count else -self.inventory
+            if count_delta < 0:
+                self.grid_value = price_sell  # 成交价设置为新的网格价
+                self.inventory = self.inventory + count_delta
+                self.money = self.money - count_delta * price_sell
+        elif price_low <= price_buy and ratio < 100:
+            # 低于网格买入
+            n = round((avg - price_buy) / avg * 2 * grid_count, 2) if avg > price_buy else 0
+            grid_count = grid_count + n
+            # 大于可买金额则全部买入
+            count_delta = grid_count if self.money > grid_count * price_buy \
+                else computed_int_count(self.money, price_buy)
+            if count_delta > 0:
+                self.grid_value = price_buy
+                self.inventory = self.inventory + count_delta
+                self.money = self.money - count_delta * price_buy
+
+        factor = computed_ratio(self.inventory * price_close, total_money)
+
+        try:
+            if self.enable_log and count_delta != 0:
+                print(json.dumps({
+                    'date': date.strftime('%Y%m%d'),
+                    'price': self.grid_value,
+                    'count_delta': count_delta,
+                    'factor': factor,
+                    'avg': round(avg, 2),
+                }, ensure_ascii=False))
+        except Exception as e:
+            print(e)
+
+        total_money = self.total_amount()
+        ratio = computed_ratio(self.inventory * price_close, total_money)
+
+        self.z1.append(ratio)
+        self.z2.append(self.money)
+        self.z3.append(total_money)
+
 
 init_config = {
     'start': '20141201',
@@ -340,12 +409,13 @@ init_config = {
     'init_money': 100_0000_0000,
     'init_percent': 1,
     # 'deal_type': 1,  # 按总资产的百分比网格
-    'deal_type': 2,  # 按总资产的百分比网格
+    'deal_type': 3,  # 按总资产的百分比网格
     'grid_step': 5,
     'grid_count': 33
 }
 
 if __name__ == '__main__':
-    simulate_render(grid_step=10, grid_count=29, deal_type=1, symbol='000300')  # 因子 *5
+    # simulate_render(grid_step=10, grid_count=29, deal_type=1, symbol='000300')  # 因子 *5
     # simulate_render(grid_step=12, grid_count=34, deal_type=2, symbol='000300')  # 5.2
-    # simulate_range((5, 20), (15, 35), 1)  # type 4
+    simulate_render(grid_step=5, grid_count=30, deal_type=3, symbol='000300')  # 5.92
+    # simulate_range((1, 10), (20, 35), 1)  # type 4

@@ -244,6 +244,8 @@ class Account:
                 self.computed_annual_next2()
             elif self.deal_type == 3:
                 self.computed_annual_next3()
+            else:
+                raise SystemError('未找到合适的策略')
             self.index = self.index + 1
         self.index = self.index - 1
 

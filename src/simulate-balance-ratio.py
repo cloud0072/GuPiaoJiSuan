@@ -204,6 +204,8 @@ class Account:
         for d in date_index:
             if self.deal_type == 1:
                 self.computed_type_1()
+            else:
+                raise SystemError('未找到合适的策略')
             self.index = self.index + 1
         self.index = self.index - 1
 
