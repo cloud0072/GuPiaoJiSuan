@@ -36,68 +36,81 @@ def computed_ratio(start, end):
 
 
 # 年化收益 每年交易日约等于243天
-def computed_annualized(series, days):
+def computed_annualized(days, series1, series2=[]):
     data_list = []
+    if len(series2) == 0:
+        series2 = series1
     # series = df['收盘Close']
-    for i, row in enumerate(series):
+    for i, row in enumerate(series1):
         if i < days:
             data_list.append(0)
         else:
-            oVal = series.iloc[i - days]
-            nVal = series.iloc[i]
+            oVal = series1.iloc[i - days]
+            nVal = series2.iloc[i]
             data_list.append(computed_grow(oVal, nVal))
     return data_list
 
 
-def read_csindex(start_date, codes):
-    start_time = pd.to_datetime(start_date, format=date_format)
+def read_csindex(codes):
+    start = init_config.get('start')
+    end = init_config.get('end')
+    start_time = pd.to_datetime(start, format=date_format)
+    end_time = pd.to_datetime(end, format=date_format) if end else None
     result = []
     for code in codes.split(','):
         df = pd.read_excel(f'../data/download_{code}.xlsx', usecols=['日期Date', '收盘Close'])
         df['日期Date'] = pd.to_datetime(df['日期Date'], format=date_format)
+        df['7天均线'] = df['收盘Close'].rolling(7).mean()
         df['180天均线'] = df['收盘Close'].rolling(180).mean()
-        df['近6月收益率'] = computed_annualized(df['收盘Close'], int(year_days / 2))
-        df['近一年收益率'] = computed_annualized(df['收盘Close'], year_days)
+        df['近6月收益率'] = computed_annualized(int(year_days / 2), df['收盘Close'])
+        df['近一年收益率'] = computed_annualized(year_days, df['收盘Close'], )
+        df['7天均线收益率'] = computed_annualized(year_days, df['7天均线'], df['收盘Close'])
         # df['近两年收益率'] = computed_annualized(df['收盘Close'], year_days * 2)
         df = df[df['日期Date'] > start_time]
+        if end_time:
+            df = df[df['日期Date'] <= end_time]
         df.index = range(1, len(df['日期Date']) + 1)
         result.append(df)
     return result
 
 
-def read_snowball(start_date, codes):
-    start_time = pd.to_datetime(start_date, format=date_format)
+def read_snowball(codes):
+    start = init_config.get('start')
+    end = init_config.get('end')
+    start_time = pd.to_datetime(start, format=date_format)
+    end_time = pd.to_datetime(end, format=date_format) if end else None
     result = []
     for code in codes.split(','):
         df = pd.read_excel(f'../data/download_SH{code}.xlsx', usecols=['日期Date', '收盘Close'])
         df['日期Date'] = pd.to_datetime(df['日期Date'], format=date_format)
         df['180天均线'] = df['收盘Close'].rolling(180).mean()
-        df['近6月收益率'] = computed_annualized(df['收盘Close'], int(year_days / 2))
-        df['近一年收益率'] = computed_annualized(df['收盘Close'], year_days)
-        # df['近两年收益率'] = computed_annualized(df['收盘Close'], year_days * 2)
+        df['近6月收益率'] = computed_annualized(int(year_days / 2), df['收盘Close'])
+        df['近一年收益率'] = computed_annualized(year_days, df['收盘Close'], )
+        # df['近两年收益率'] = computed_annualized(year_days * 2, df['收盘Close'], )
         df = df[df['日期Date'] > start_time]
+        if end_time:
+            df = df[df['日期Date'] <= end_time]
         df.index = range(1, len(df['日期Date']) + 1)
         result.append(df)
     return result
 
 
 def simulate_render(**args):
-    if args.get('symbol'):
+    if 'symbol' in args:
         init_config.update({'symbol': args.get('symbol')})
-    if args.get('deal_type'):
+    if 'deal_type' in args:
         init_config.update({'deal_type': args.get('deal_type')})
-    if args.get('annual_sell'):
+    if 'annual_sell' in args:
         init_config.update({'annual_sell': args.get('annual_sell')})
-    if args.get('annual_buy'):
+    if 'annual_buy' in args:
         init_config.update({'annual_buy': args.get('annual_buy')})
-    if args.get('hs300_ratio'):
+    if 'hs300_ratio' in args:
         init_config.update({'hs300_ratio': args.get('hs300_ratio')})
     start = init_config.get('start')
     symbol = init_config.get('symbol')
-    deal_type = init_config.get('deal_type')
     data_source = init_config.get('data_source')
-    [df] = read_snowball(start, symbol) if data_source == 'snowball' else read_csindex(start, symbol)
-    [hs300df] = read_csindex(start, '000300')
+    [df] = read_snowball(symbol) if data_source == 'snowball' else read_csindex(symbol)
+    [hs300df] = read_csindex('000300')
     account = Account(init_config, df, hs300df)
     account.enable_log = True
     account.computed()
@@ -117,8 +130,8 @@ def simulate_range(conf_annual_sell, conf_annual_buy, range_step=1):
     deal_type = init_config.get('deal_type')
     data_source = init_config.get('data_source')
 
-    [df] = read_snowball(start, symbol) if data_source == 'snowball' else read_csindex(start, symbol)
-    [hs300df] = read_csindex(start, '000300')
+    [df] = read_snowball(symbol) if data_source == 'snowball' else read_csindex(symbol)
+    [hs300df] = read_csindex('000300')
 
     # -18 ~ 28%
     start_list = []
@@ -194,25 +207,26 @@ class Account:
         df = self.df
         hs300df = self.hs300df
         date_index = df['日期Date']
-        amount_ratio = df['收盘Close'].iloc[0] / self.z3[0]
-        hs300_ratio = df['收盘Close'].iloc[0] / hs300df['收盘Close'].iloc[0]
+        amount_factor = df['收盘Close'].iloc[0] / self.z3[0]
+        hs300_factor = df['收盘Close'].iloc[0] / hs300df['收盘Close'].iloc[0]
 
         fig, ax1 = plt.subplots(figsize=(4 * 10, 4))
         ax1.plot_date(date_index, df['收盘Close'], '-', label=self.symbol, color="red")
-        ax1.plot_date(hs300df['日期Date'], [(x * hs300_ratio) for x in hs300df['收盘Close']], '-', label='000300',
-                      color="orange")
+        # ax1.plot_date(hs300df['日期Date'], [(x * hs300_factor) for x in hs300df['收盘Close']], '-', label='000300', color="orange")
         # ax1.plot_date(date_index, df['180天均线'], '--', label="180天均线", color="pink")
-        ax1.plot_date(date_index, [x * amount_ratio for x in self.z3], '-', label="总资产", color="darkred")
+        ax1.plot_date(date_index, [x * amount_factor for x in self.z3], '-', label="总资产", color="darkred")
 
         ax2 = ax1.twinx()
         avg_6m = df['近6月收益率'].mean()
         avg_year = df['近一年收益率'].mean()
         # avg_2year = df['近两年收益率'].mean()
 
+        ax2.plot_date(hs300df['日期Date'], hs300df['近一年收益率'], '--', label='000300', color="orange")
         # ax2.plot_date(date_index, df['近6月收益率'], '--', label="近6月收益率", color="skyblue")
         # ax2.plot_date(date_index, [avg_6m for d in date_index], '--', label="平均收益率", color="skyblue")
-        ax2.plot_date(date_index, df['近一年收益率'], '--', label="近一年收益率", color="skyblue")
-        ax2.plot_date(date_index, [avg_year for d in date_index], '--', label="平均收益率", color="skyblue")
+        # ax2.plot_date(date_index, df['近一年收益率'], '--', label="近一年收益率", color="skyblue")
+        ax2.plot_date(date_index, df['7天均线收益率'], '--', label="7天均线收益率", color="skyblue")
+        # ax2.plot_date(date_index, [avg_year for d in date_index], '--', label="平均收益率", color="skyblue")
         # ax2.plot_date(date_index, df['近两年收益率'], '--', label="近两年收益率", color="blue")
         # ax2.plot_date(date_index, [avg_2year for d in date_index], '--', label="平均收益率", color="blue")
         ax2.plot_date(date_index, self.z1, '--', label="比例", color="darkblue")
@@ -244,6 +258,8 @@ class Account:
                 self.computed_annual_next2()
             elif self.deal_type == 3:
                 self.computed_annual_next3()
+            elif self.deal_type == 4:
+                self.computed_annual_next4()
             else:
                 raise SystemError('未找到合适的策略')
             self.index = self.index + 1
@@ -331,18 +347,14 @@ class Account:
         self.z2.append(self.money)
         self.z3.append(total_money)
 
-    # 加入沪深三百近一年涨幅作为影响因子
+    # 使用均线收益率，平滑收益
     def computed_annual_next3(self):
         date = self.df['日期Date'].iloc[self.index]
         price = self.df['收盘Close'].iloc[self.index]  # 获取当天收盘价
-        annual = self.df['近6月收益率'].iloc[self.index]
-        annual_300 = self.hs300df['近一年收益率'].iloc[self.index]
+        annual = self.df['7天均线收益率'].iloc[self.index]
         total_money = self.total_amount()
-        # 控制因子不超过前值的20% 约2 则
-        hs300_i = 2 if annual_300 * init_config.get('hs300_ratio') > 2 else annual_300 * init_config.get('hs300_ratio')
-        hs300_i = -2 if annual_300 * init_config.get('hs300_ratio') < 2 else hs300_i
-        annual_sell = self.annual_sell + hs300_i
-        annual_buy = self.annual_buy + hs300_i
+        annual_sell = self.annual_sell
+        annual_buy = self.annual_buy
 
         ratio = computed_ratio(self.money, total_money)
         if annual <= annual_buy:
@@ -364,6 +376,52 @@ class Account:
                     'price': price,
                     'count_delta': count_delta,
                     'factor': factor,
+                    'annual_6m': annual,
+                }, ensure_ascii=False))
+        except Exception as e:
+            print(e)
+
+        total_money = self.total_amount()
+        ratio = computed_ratio(self.money, total_money)
+
+        self.z1.append(ratio)
+        self.z2.append(self.money)
+        self.z3.append(total_money)
+
+    # 加入沪深三百近一年涨幅作为影响因子
+    def computed_annual_next4(self):
+        date = self.df['日期Date'].iloc[self.index]
+        price = self.df['收盘Close'].iloc[self.index]  # 获取当天收盘价
+        annual = self.df['7天均线收益率'].iloc[self.index]
+        annual_300 = self.hs300df['近6月收益率'].iloc[self.index]
+        total_money = self.total_amount()
+        # 控制因子不超过前值的20% 约2 则
+        hs300_factor = annual_300 * init_config.get('hs300_ratio')
+        hs300_factor = -10 if hs300_factor < -10 else 100 if hs300_factor > 100 else hs300_factor
+        annual_sell = self.annual_sell + hs300_factor
+        annual_buy = self.annual_buy + hs300_factor
+
+        ratio = computed_ratio(self.money, total_money)
+        if annual <= annual_buy:
+            factor = 100
+        elif annual_sell < annual:
+            factor = 0
+        else:
+            factor = ratio
+        try:
+            factor = 0 if factor < 0 else 100 if factor > 100 else factor  # 买卖超过持仓最大最小值时进行修正
+            money_delta = self.money - total_money * (1 - factor / 100)
+            count_delta = computed_int_count(money_delta, price)
+            self.inventory = self.inventory + count_delta
+            self.money = self.money - count_delta * price
+
+            if self.enable_log and count_delta != 0:
+                print(json.dumps({
+                    'date': date.strftime('%Y%m%d'),
+                    'price': price,
+                    'count_delta': count_delta,
+                    'factor': factor,
+                    'hs300_factor': round(hs300_factor, 2),
                     'annual': annual,
                 }, ensure_ascii=False))
         except Exception as e:
@@ -388,27 +446,37 @@ etfs = [
     ('红利低波ETF', '512890'),
 ]
 init_config = {
-    'symbol': '000905',
+    # 'symbol': '000905',
     # 'symbol': '000300',
-    # 'symbol': 'H20269',
+    'symbol': 'H20269',
     # 'symbol': 'H20955',
     # 'symbol': '515080',
-    'start': '20141227',
+    'start': '20141201',
+    # 'start': '20191201',
+    'end': '20191201',
+    # 'end': '20241201',
     'init_money': 100_0000_0000,
     'init_percent': 1,
     # 'data_source': 'snowball',
-    'deal_type': 1,  # 年化收益 上下买入卖出
+    # 'deal_type': 1,  # 年化收益 上下买入卖出
     # 'deal_type': 2,  # 6个月收益
-    # 'deal_type': 3,  # 6个月收益 带沪深300涨幅因子
+    # 'deal_type': 3,  # 近一年 30天均线收益
+    'deal_type': 4,  # 6个月收益 带沪深300涨幅因子
     'annual_sell': 12,
     'annual_buy': 10,
-    'hs300_ratio': 0.01
+    'hs300_ratio': 2  # 30 -> 2 神奇！和hs300收益率有负的相关性
 }
 
 if __name__ == '__main__':
-    # simulate_render(symbol='H20269', deal_type=1, annual_sell=19, annual_buy=9)  # 年化 24 持仓时长67
-    # simulate_render(symbol='H20269', deal_type=1, annual_sell=17, annual_buy=9)  # 年化 23.7 持仓时长63.4
-    # simulate_render(symbol='H20269', deal_type=2, annual_sell=19, annual_buy=-3)  # 年化 26 持仓时长68
-    # simulate_render(symbol='H20955', deal_type=2, annual_sell=10, annual_buy=5)  # 年化 17 持仓时长63
-    # simulate_render(symbol='515080', deal_type=2, annual_sell=10, annual_buy=8)  # 年化 17.7 持仓时长89
-    simulate_range((20, 40), (-20, 0), 1)
+    # 19-24 / 14-24
+    # simulate_render(deal_type=1, annual_sell=19, annual_buy=9)  # 年化 26.35/13.43 持仓时长67
+    # simulate_render(deal_type=1, annual_sell=17, annual_buy=9)  # 年化 26.03/13.13 持仓时长63.4
+    # simulate_render(deal_type=2, annual_sell=19, annual_buy=-3)  # 年化 25.95/14.28 持仓时长68
+    # simulate_render(deal_type=3, annual_sell=18, annual_buy=7)  # 年化 28.01/14.34 持仓时长70.7
+    # simulate_render(deal_type=4, annual_sell=19, annual_buy=7, hs300_ratio=-0.05)  # 年化 32.02/16.02 持仓时长56.24
+    # simulate_range((12, 25), (0, 20), 1)
+
+    # 14-19
+    # simulate_render(deal_type=4, annual_sell=20, annual_buy=-5, hs300_ratio=0.1)  # 年化 7.26 持仓时长51.64
+    simulate_render(deal_type=4, annual_sell=20, annual_buy=10, hs300_ratio=3)  # 年化 7.26 持仓时长51.64
+    # simulate_range((80, 90), (0, 10), 1)
