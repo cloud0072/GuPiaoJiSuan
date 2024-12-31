@@ -48,8 +48,11 @@ def computed_annualized(series, days):
     return data_list
 
 
-def read_csindex(start_date, codes):
-    start_time = pd.to_datetime(start_date, format=date_format)
+def read_csindex(codes):
+    start = init_config.get('start')
+    end = init_config.get('end')
+    start_time = pd.to_datetime(start, format=date_format)
+    end_time = pd.to_datetime(end, format=date_format) if end else None
     result = []
     for code in codes.split(','):
         df = pd.read_excel(f'../data/download_{code}.xlsx', usecols=['日期Date', '收盘Close', '最高High', '最低Low'])
@@ -58,6 +61,8 @@ def read_csindex(start_date, codes):
         df['近一年均线'] = df['收盘Close'].rolling(year_days).mean()
         df['近两年均线'] = df['收盘Close'].rolling(year_days * 2).mean()
         df = df[df['日期Date'] > start_time]
+        if end_time:
+            df = df[df['日期Date'] <= end_time]
         df.index = range(1, len(df['日期Date']) + 1)
         result.append(df)
     return result
@@ -72,9 +77,8 @@ def simulate_render(grid_step=None, grid_ratio=None, deal_type=None, symbol=None
         init_config.update({'deal_type': deal_type})
     if symbol:
         init_config.update({'symbol': symbol})
-    start = init_config.get('start')
     symbol = init_config.get('symbol')
-    [df] = read_csindex(start, symbol)
+    [df] = read_csindex(symbol)
     account = Account(init_config, df)
     account.enable_log = True
     account.computed()
@@ -91,9 +95,10 @@ def simulate_render(grid_step=None, grid_ratio=None, deal_type=None, symbol=None
 
 def simulate_range(conf_step, conf_ratio, range_step):
     start = init_config.get('start')
+    end = init_config.get('end')
     symbol = init_config.get('symbol')
     deal_type = init_config.get('deal_type')
-    [df] = read_csindex(start, symbol)
+    [df] = read_csindex(symbol)
 
     start_list = []
     symbol_list = []
@@ -123,6 +128,9 @@ def simulate_range(conf_step, conf_ratio, range_step):
             annual_grow_list.append(annual_grow)
             ratio_avg_list.append(ratio_avg)
             print(json.dumps({
+                'symbol': symbol,
+                'start': start,
+                'end': end,
                 'grid_step': grid_step,
                 'grid_ratio': grid_ratio,
                 'annual_grow': annual_grow,
@@ -339,7 +347,7 @@ class Account:
         price_low = self.df['最低Low'].iloc[self.index]
         price_low = price_close if np.isnan(price_low) else price_low
         # avg = self.df['180天均线'].iloc[self.index]
-        avg = self.df['近两年均线'].iloc[self.index]
+        avg = self.df['近一年均线'].iloc[self.index]
         total_money = self.total_amount()
         grid_value = self.grid_value
         grid_step = self.grid_step
@@ -355,16 +363,16 @@ class Account:
             # 均线高于价格 正常卖出
             # 均线低于价格 增加偏离值的卖出量
             delta = round((price_sell - avg) / avg, 2) if avg < price_sell else 0
-            n = 1 + delta * 2  # 设置影响因子 - 卖出价大于均线比例越高则卖出越多，卖出价小于均线则降低
-            factor = ratio - grid_ratio * n
+            n = 1 + delta  # 设置影响因子 - 卖出价大于均线比例越高则卖出越多，卖出价小于均线则降低
+            factor = ratio - grid_ratio * n * n
         elif price_low <= price_buy and self.money > 100 * price_buy:
             # 低于网格买入
             self.grid_value = price_buy
             # 均线高于价格 增加偏离值的买入出量
             # 均线低于价格 正常买入
             delta = round((avg - price_buy) / price_buy, 2) if avg > price_buy else 0
-            n = 1 + delta * 4  # 设置影响因子 - 卖出价大于均线比例越高则卖出越多，卖出价小于均线则降低
-            factor = ratio + grid_ratio * n
+            n = 1 + delta  # 设置影响因子 - 卖出价大于均线比例越高则卖出越多，卖出价小于均线则降低
+            factor = ratio + grid_ratio * n * n
         else:
             factor = ratio
         try:
@@ -413,25 +421,26 @@ etfs = [
     ('红利低波ETF', '512890'),
 ]
 init_config = {
-    # 'symbol': '000300',
-    'symbol': '000905',
+    'symbol': '000300',
+    # 'symbol': '000905',
     # 'symbol': '000852',
     # 'symbol': 'H20269',
-    'start': '20141216',
+    'start': '20131201',
+    'end': '20241201',
     'init_money': 100_0000_0000,
     'init_percent': 1,
-    'deal_type': 1,  # 按总资产的百分比网格
+    # 'deal_type': 1,  # 按总资产的百分比网格
     # 'deal_type': 5,  # 按总资产百分比做网格，加入超卖超买影响因子 * 1.5 ，越跌越买 使用60周均线
-    # 'deal_type': 6,  # 按总资产百分比做网格，加入超卖超买影响因子 * 1.5 ，越跌越买 使用60周均线
-    'grid_step': 5,
-    'grid_ratio': 10,
+    'deal_type': 6,  # 按总资产百分比做网格，加入超卖超买影响因子 * 1.5 ，越跌越买 使用60周均线
+    # 'grid_step': 5,
+    # 'grid_ratio': 10,
 }
 
 if __name__ == '__main__':
 
     # simulate_render(grid_step=11, grid_ratio=27, deal_type=1, symbol='000300')  # 6.46
-    # simulate_render(grid_step=14, grid_ratio=22, deal_type=1, symbol='000905')  # 6.6
     # simulate_render(grid_step=12, grid_ratio=27, deal_type=5, symbol='000300')  # 8.15
-    # simulate_render(grid_step=14, grid_ratio=29, deal_type=6, symbol='000300')  # 6.89
-    # simulate_render(grid_step=13, grid_ratio=13, deal_type=6, symbol='000905')  # 7.37
-    simulate_range((5, 20), (10, 30), 1)  # type 4
+    # simulate_render(grid_step=40, grid_ratio=40, deal_type=5, symbol='000300')  # 10.17
+    # simulate_render(grid_step=25, grid_ratio=12, deal_type=5, symbol='000905')  # 8.73
+    simulate_render(grid_step=21, grid_ratio=12, deal_type=6, symbol='000300')  # 6.65
+    # simulate_range((10, 30), (10, 30), 1)  # type 5
