@@ -46,20 +46,19 @@ kline = ball.kline('SH600938', 300)
 income = ball.income(symbol='SH600938', is_annals=1, count=10)
 """
 
-ball.set_token("xq_a_token=2420c49cd18e847d63cec9744fd29e638ff2a540;u=3376125439;")
+ball.set_token("xq_a_token=d4f01d8b7901181c716a85db9a75f532d82144ea;u=3376125439;")
 
 example_symbols = [
     ('SH000300', '沪深300'),
     ('SH511010', '国债ETF'),
     ('SH512100', '中证1000ETF'),
-    ('SH515080', '中证红利ETF', 1.571),
-    ('SH515100', '红利低波100ETF', 1.51),
-    ('SH513630', '港股红利指数ETF', 1.288),
-    ('SH563300', '中证2000ETF', 1.144),
+    ('SH512890', '红利低波ETF',),
+    ('SH513630', '港股红利指数ETF'),
+    ('SH515080', '中证红利ETF',),
+    ('SH515100', '红利低波100ETF'),
+    ('SH563300', '中证2000ETF'),
     ('SH600938', '中国海油'),
     ('01810', '小米集团'),
-    ('515080', '中证红利ETF',),
-    ('512890', '红利低波ETF',),
 ]
 
 example_color = [
@@ -103,8 +102,9 @@ def download(symbols, start_date):
         df['最低Low'] = df['low']
         df['指数代码Index Code'] = [symbol for i in df['close']]
         with pd.ExcelWriter(f'../data/download_{symbol}.xlsx') as writer:
-            columns = ['日期Date', '指数代码Index Code', '收盘Close']
+            columns = ['日期Date', '指数代码Index Code', '收盘Close', '开盘Open', '最高High', '最低Low']
             df.to_excel(writer, index=False, sheet_name='Data', columns=columns)
+            print(f'download success {symbol}')
 
 
 def fetch_data(symbols, start_date):
@@ -164,9 +164,9 @@ def render(symbols, start_date, dfs, avg=180):
 
 if __name__ == '__main__':
     start_time = (datetime.now() - timedelta(days=366)).strftime('%Y%m%d')
-    symbol_list = ['SH000300', 'SH515100', 'SH513630', 'SH563300', 'SH515080', 'SH512890']
+    symbol_list = ['SH000300', 'SH511010', 'SH515100', 'SH512890', 'SH513630', 'SH563300', 'SH515080', 'SH512890']
     # start_time = '20201201'
     # symbol_list = ['SH512100', 'SH515100', 'SH515080']
     # df_list = fetch_data(symbol_list, start_time)
     # render(symbol_list, start_time, df_list, )
-    download(symbol_list, '20131218')
+    download(symbol_list, '20130101')
