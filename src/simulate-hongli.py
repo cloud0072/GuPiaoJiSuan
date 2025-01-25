@@ -113,7 +113,7 @@ def simulate_render(**args):
     symbol = init_config.get('symbol')
     data_source = init_config.get('data_source')
     [df] = read_snowball(symbol) if data_source == 'snowball' else read_csindex(symbol)
-    [hs300df] = read_csindex('000300')
+    [hs300df] = read_snowball('000300')
     account = Account(init_config, df, hs300df)
     account.enable_log = True
     account.computed()
@@ -134,7 +134,7 @@ def simulate_range(conf_annual_sell, conf_annual_buy, range_step=1):
     data_source = init_config.get('data_source')
 
     [df] = read_snowball(symbol) if data_source == 'snowball' else read_csindex(symbol)
-    [hs300df] = read_csindex('000300')
+    [hs300df] = read_snowball('000300')
 
     # -18 ~ 28%
     start_list = []
@@ -446,26 +446,29 @@ symbols = [
 ]
 etfs = [
     # ('中证红利ETF', '515080'),
+    ('上证50ETF', '510050'),
     ('红利低波100ETF', '515100'),
     ('红利低波ETF', '512890'),
 ]
 init_config = {
     # 'symbol': '000905',
     # 'symbol': '000300',
-    'symbol': 'H20269',
+    # 'symbol': 'H20269',
     # 'symbol': 'H20955',
     # 'symbol': '515080',
-    'start': '20141201',
+    'symbol': '510050',
+    'start': '20140101',
     # 'start': '20191201',
-    'end': '20191201',
-    # 'end': '20241201',
+    # 'end': '20191201',
+    'end': '20250101',
     'init_money': 100_0000_0000,
     'init_percent': 1,
-    # 'data_source': 'snowball',
-    # 'deal_type': 1,  # 年化收益 上下买入卖出
+    # 'data_source': 'csindex',
+    'data_source': 'snowball',
+    'deal_type': 1,  # 年化收益 上下买入卖出
     # 'deal_type': 2,  # 6个月收益
     # 'deal_type': 3,  # 近一年 30天均线收益
-    'deal_type': 4,  # 6个月收益 带沪深300涨幅因子
+    # 'deal_type': 4,  # 6个月收益 带沪深300涨幅因子
     'annual_sell': 12,
     'annual_buy': 10,
     'hs300_ratio': 2  # 30 -> 2 神奇！和hs300收益率有负的相关性
@@ -482,5 +485,10 @@ if __name__ == '__main__':
 
     # 14-19
     # simulate_render(deal_type=4, annual_sell=20, annual_buy=-5, hs300_ratio=0.1)  # 年化 7.26 持仓时长51.64
-    simulate_render(deal_type=4, annual_sell=20, annual_buy=10, hs300_ratio=3)  # 年化 7.26 持仓时长51.64
+    # simulate_render(deal_type=4, annual_sell=20, annual_buy=10, hs300_ratio=3)  # 年化 7.26 持仓时长51.64
     # simulate_range((80, 90), (0, 10), 1)
+
+    # 15-25
+    # simulate_render(deal_type=1, annual_sell=-3, annual_buy=-6, hs300_ratio=2)  # 510050 年化 5.58 持仓时长34.43
+    simulate_range((-5, 10), (-10, 0), 1)
+

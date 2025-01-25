@@ -15,6 +15,7 @@ plt.switch_backend('TkAgg')
 date_format = '%Y%m%d'
 year_days = 244
 
+
 class DateEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, datetime) or isinstance(obj, date):
@@ -44,14 +45,17 @@ def computed_ratio(start, end):
 
 
 # 年化收益 每年交易日约等于243天
-def computed_annualized(series, days):
+def computed_annualized(days, series1, series2=[]):
     data_list = []
-    for i, row in enumerate(series):
+    if len(series2) == 0:
+        series2 = series1
+    # series = df['收盘Close']
+    for i, row in enumerate(series1):
         if i < days:
             data_list.append(0)
         else:
-            oVal = series.iloc[i - days]
-            nVal = series.iloc[i]
+            oVal = series1.iloc[i - days]
+            nVal = series2.iloc[i]
             data_list.append(computed_grow(oVal, nVal))
     return data_list
 
@@ -346,7 +350,7 @@ init_config = {
     # 'symbol': 'H20269',
     'start': '20140101',  # 牛市起点
     # 'end': '20150618',  # 牛市结束一周
-    'end': '20240101',  # 新起点
+    'end': '20250101',  # 新起点
     'init_money': 100_0000_0000,
     'init_percent': 1,
     'deal_type': 1,  # 按总资产的百分比网格
@@ -358,5 +362,6 @@ if __name__ == '__main__':
     # 探究上涨时怎么做网格
     # simulate_render(grid_step=15, grid_ratio=19, deal_type=1, symbol='000300')  # 10.25
     # simulate_render(grid_step=13, grid_ratio=19, deal_type=2, symbol='000300')  # 9.22
-    simulate_range(symbol='000300', deal_type=1, conf_date=('20140101', 1), conf_up_step=(10, 25), conf_up_ratio=(10, 25),
+    simulate_range(symbol='000300', deal_type=1, conf_date=('20140101', 1), conf_up_step=(10, 25),
+                   conf_up_ratio=(10, 25),
                    conf_down_step=(10, 25), conf_down_ratio=(10, 25))

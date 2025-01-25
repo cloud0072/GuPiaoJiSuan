@@ -36,14 +36,17 @@ def computed_ratio(start, end):
 
 
 # 年化收益 每年交易日约等于243天
-def computed_annualized(series, days):
+def computed_annualized(days, series1, series2=[]):
     data_list = []
-    for i, row in enumerate(series):
+    if len(series2) == 0:
+        series2 = series1
+    # series = df['收盘Close']
+    for i, row in enumerate(series1):
         if i < days:
             data_list.append(0)
         else:
-            oVal = series.iloc[i - days]
-            nVal = series.iloc[i]
+            oVal = series1.iloc[i - days]
+            nVal = series2.iloc[i]
             data_list.append(computed_grow(oVal, nVal))
     return data_list
 
@@ -57,6 +60,28 @@ def read_csindex(codes):
     for code in codes.split(','):
         df = pd.read_excel(f'../data/download_{code}.xlsx', usecols=['日期Date', '收盘Close', '最高High', '最低Low'])
         df['日期Date'] = pd.to_datetime(df['日期Date'], format=date_format)
+        df['近一年收益率'] = computed_annualized(year_days, df['收盘Close'], )
+        df['180天均线'] = df['收盘Close'].rolling(180).mean()
+        df['近一年均线'] = df['收盘Close'].rolling(year_days).mean()
+        df['近两年均线'] = df['收盘Close'].rolling(year_days * 2).mean()
+        df = df[df['日期Date'] > start_time]
+        if end_time:
+            df = df[df['日期Date'] <= end_time]
+        df.index = range(1, len(df['日期Date']) + 1)
+        result.append(df)
+    return result
+
+
+def read_snowball(codes):
+    start = init_config.get('start')
+    end = init_config.get('end')
+    start_time = pd.to_datetime(start, format=date_format)
+    end_time = pd.to_datetime(end, format=date_format) if end else None
+    result = []
+    for code in codes.split(','):
+        df = pd.read_excel(f'../data/download_SH{code}.xlsx', usecols=['日期Date', '收盘Close', '最高High', '最低Low'])
+        df['日期Date'] = pd.to_datetime(df['日期Date'], format=date_format)
+        df['近一年收益率'] = computed_annualized(year_days, df['收盘Close'], )
         df['180天均线'] = df['收盘Close'].rolling(180).mean()
         df['近一年均线'] = df['收盘Close'].rolling(year_days).mean()
         df['近两年均线'] = df['收盘Close'].rolling(year_days * 2).mean()
@@ -78,7 +103,8 @@ def simulate_render(grid_step=None, grid_ratio=None, deal_type=None, symbol=None
     if symbol:
         init_config.update({'symbol': symbol})
     symbol = init_config.get('symbol')
-    [df] = read_csindex(symbol)
+    # [df] = read_csindex(symbol)
+    [df] = read_snowball(symbol)
     account = Account(init_config, df)
     account.enable_log = True
     account.computed()
@@ -98,7 +124,8 @@ def simulate_range(conf_step, conf_ratio, range_step):
     end = init_config.get('end')
     symbol = init_config.get('symbol')
     deal_type = init_config.get('deal_type')
-    [df] = read_csindex(symbol)
+    # [df] = read_csindex(symbol)
+    [df] = read_snowball(symbol)
 
     start_list = []
     symbol_list = []
@@ -422,26 +449,29 @@ etfs = [
     ('红利低波ETF', '512890'),
 ]
 init_config = {
-    'symbol': '000300',
+    'symbol': '510050',
+    # 'symbol': '000300',
     # 'symbol': '000905',
     # 'symbol': '000852',
     # 'symbol': 'H20269',
-    'start': '20131201',
-    'end': '20241201',
+    'start': '20160101',
+    'end': '20250101',
     'init_money': 100_0000_0000,
     'init_percent': 1,
-    # 'deal_type': 1,  # 按总资产的百分比网格
-    # 'deal_type': 5,  # 按总资产百分比做网格，加入超卖超买影响因子 * 1.5 ，越跌越买 使用60周均线
-    'deal_type': 6,  # 按总资产百分比做网格，加入超卖超买影响因子 * 1.5 ，越跌越买 使用60周均线
+    'deal_type': 1,  # 按总资产的百分比网格
+    # 'deal_type': 5,  # 按总资产百分比做网格，加入超卖超买影响因子 ，越跌越买 使用近一年均线
+    # 'deal_type': 6,  # 按总资产百分比做网格，加入超卖超买影响因子 进行平方，增大偏离效果 ，越跌越买 使用近一年周均线
     # 'grid_step': 5,
     # 'grid_ratio': 10,
 }
 
 if __name__ == '__main__':
-
     # simulate_render(grid_step=11, grid_ratio=27, deal_type=1, symbol='000300')  # 6.46
     # simulate_render(grid_step=12, grid_ratio=27, deal_type=5, symbol='000300')  # 8.15
     # simulate_render(grid_step=40, grid_ratio=40, deal_type=5, symbol='000300')  # 10.17
     # simulate_render(grid_step=25, grid_ratio=12, deal_type=5, symbol='000905')  # 8.73
-    simulate_render(grid_step=21, grid_ratio=12, deal_type=6, symbol='000300')  # 6.65
-    # simulate_range((10, 30), (10, 30), 1)  # type 5
+    # simulate_render(grid_step=21, grid_ratio=12, deal_type=6, symbol='000300')  # 6.65
+    # simulate_render(grid_step=43, grid_ratio=38, deal_type=1, symbol='510050')  # 8.06 29.22
+    simulate_render(grid_step=30, grid_ratio=30, deal_type=1, symbol='510050')  # 7.39 38.11
+    # simulate_range((20, 40), (20, 40), 1)  # type 5
+    # simulate_range((1, 40), (1, 40), 2)  # type 6

@@ -42,14 +42,17 @@ def computed_ratio(start, end):
 
 
 # 年化收益 每年交易日约等于243天
-def computed_annualized(series, days):
+def computed_annualized(days, series1, series2=[]):
     data_list = []
-    for i, row in enumerate(series):
+    if len(series2) == 0:
+        series2 = series1
+    # series = df['收盘Close']
+    for i, row in enumerate(series1):
         if i < days:
             data_list.append(0)
         else:
-            oVal = series.iloc[i - days]
-            nVal = series.iloc[i]
+            oVal = series1.iloc[i - days]
+            nVal = series2.iloc[i]
             data_list.append(computed_grow(oVal, nVal))
     return data_list
 

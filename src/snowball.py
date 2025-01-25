@@ -46,9 +46,10 @@ kline = ball.kline('SH600938', 300)
 income = ball.income(symbol='SH600938', is_annals=1, count=10)
 """
 
-ball.set_token("xq_a_token=d4f01d8b7901181c716a85db9a75f532d82144ea;u=3376125439;")
+ball.set_token("xq_a_token=608244718c6225b29ca2996ab9bc7d999bee886a;u=3376125439;")
 
 example_symbols = [
+    ('SH510050', '上证50ETF'),
     ('SH000300', '沪深300'),
     ('SH511010', '国债ETF'),
     ('SH512100', '中证1000ETF'),
@@ -163,10 +164,13 @@ def render(symbols, start_date, dfs, avg=180):
 
 
 if __name__ == '__main__':
-    start_time = (datetime.now() - timedelta(days=366)).strftime('%Y%m%d')
-    symbol_list = ['SH000300', 'SH511010', 'SH515100', 'SH512890', 'SH513630', 'SH563300', 'SH515080', 'SH512890']
-    # start_time = '20201201'
-    # symbol_list = ['SH512100', 'SH515100', 'SH515080']
+    start_time = '20130101'
+    # start_time = (datetime.now() - timedelta(days=366)).strftime('%Y%m%d')
+    symbol_list = [
+        'SH510050', 'SH000300', 'SH511010', 'SH512100', 'SH515100', 'SH512890',
+        'SH513630', 'SH563300',  'SH515080', 'SH512890'
+    ]
+    # symbol_list = ['SH515100', 'SH515080']
     # df_list = fetch_data(symbol_list, start_time)
     # render(symbol_list, start_time, df_list, )
-    download(symbol_list, '20130101')
+    download(symbol_list, start_time)
