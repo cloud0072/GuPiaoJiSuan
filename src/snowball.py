@@ -8,6 +8,8 @@ import matplotlib.dates as mpd
 import matplotlib.pylab as mpl
 import matplotlib.pyplot as plt
 
+from src.indexes import all_stocks
+
 mpl.rcParams['font.sans-serif'] = ['FangSong']
 mpl.rcParams['axes.unicode_minus'] = False
 plt.switch_backend('TkAgg')
@@ -108,6 +110,25 @@ def download(symbols, start_date):
             print(f'download success {symbol}')
 
 
+def get_index_data(symbols, start_date):
+    start = datetime.strptime(start_date, '%Y%m%d')
+    start_timestamp = start.timestamp() * 1000
+    interval = (datetime.now() - start).days
+    dfs = []
+    for symbol in symbols:
+        kline = ball.kline(symbol, days=interval).get('data')
+        df = pd.DataFrame(kline.get('item'), columns=kline.get('column'))
+        df['日期Date'] = [datetime.fromtimestamp(t / 1000).strftime('%Y%m%d') for t in df['timestamp']]
+        df['收盘Close'] = df['close']
+        df['开盘Open'] = df['open']
+        df['最高High'] = df['high']
+        df['最低Low'] = df['low']
+        df['指数代码Index Code'] = [symbol for i in df['close']]
+        df = df[df['timestamp'] >= start_timestamp]
+        dfs.append(df)
+    return dfs
+
+
 def fetch_data(symbols, start_date):
     start = datetime.strptime(start_date, '%Y%m%d')
     start_timestamp = start.timestamp() * 1000
@@ -144,8 +165,8 @@ def render(symbols, start_date, dfs, avg=180):
     for i, df in enumerate(dfs):
         date_axis = pd.to_datetime(df['date'], format='%Y-%m-%d')
         symbol = None
-        for s in example_symbols:
-            if s[0] == symbols[i]:
+        for s in all_stocks:
+            if s[0]['symbol'] == symbols[i]:
                 symbol = s
                 break
         label = symbol[1] if symbol else symbols[i]
@@ -163,14 +184,45 @@ def render(symbols, start_date, dfs, avg=180):
     send_message(message)
 
 
+# 对比多个指数的方法
+def render_multi(symbols, start_date, end_date=None):
+    dfs = get_index_data(symbols, start_date)
+    dfs = sorted(dfs, key=lambda x: len(x.index), reverse=True)
+    fdf = dfs[0]
+    ratio = 1
+    plt.figure(figsize=(5 * 4, 5))
+    for i, df in enumerate(dfs):
+        if end_date:
+            end = datetime.strptime(end_date, '%Y%m%d')
+            end_timestamp = end.timestamp() * 1000
+            df = df[df['timestamp'] <= end_timestamp]
+        date_axis = pd.to_datetime(df['日期Date'], format='%Y%m%d')
+        symbol = df['指数代码Index Code'].iloc[0]
+        if i != 0:
+            fday = df['timestamp'].iloc[0]
+            row = fdf[fdf['timestamp'] == fday]
+            ratio = row['close'].iloc[0] / df['close'].iloc[0]
+        plt.plot_date(date_axis, [x * ratio for x in df['close']], '-', label=symbol, color=example_color[i])
+    plt.xlabel('交易日')
+    plt.ylabel('收盘价')
+    plt.legend(loc='upper left')
+    plt.grid(True)
+    plt.savefig(f'../output/render_multi_{start_time}.png', bbox_inches='tight')
+
+
 if __name__ == '__main__':
-    start_time = '20130101'
+    start_time = '20240901'
+    # end_time = '20250101'
+    end_time = None
     # start_time = (datetime.now() - timedelta(days=366)).strftime('%Y%m%d')
     symbol_list = [
-        'SH510050', 'SH000300', 'SH511010', 'SH512100', 'SH515100', 'SH512890',
-        'SH513630', 'SH563300',  'SH515080', 'SH512890'
+        # 'SH000300',
+        'SH510300',
+        # 'SH510050',
+        # 'SH512800',
+        'SH510500',
+        'SH512100',
+        'SZ159593',
+        'SZ159338',
     ]
-    # symbol_list = ['SH515100', 'SH515080']
-    # df_list = fetch_data(symbol_list, start_time)
-    # render(symbol_list, start_time, df_list, )
-    download(symbol_list, start_time)
+    render_multi(symbol_list, start_time, end_time)
