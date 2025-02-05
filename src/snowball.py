@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timedelta
 
 import pysnowball as ball
@@ -48,7 +49,7 @@ kline = ball.kline('SH600938', 300)
 income = ball.income(symbol='SH600938', is_annals=1, count=10)
 """
 
-ball.set_token("xq_a_token=608244718c6225b29ca2996ab9bc7d999bee886a;u=3376125439;")
+ball.set_token("xq_a_token=4685c34fee29bd29d2d6d2cf332c8ea2e5541c59;u=3376125439;")
 
 example_symbols = [
     ('SH510050', '上证50ETF'),
@@ -116,16 +117,19 @@ def get_index_data(symbols, start_date):
     interval = (datetime.now() - start).days
     dfs = []
     for symbol in symbols:
-        kline = ball.kline(symbol, days=interval).get('data')
-        df = pd.DataFrame(kline.get('item'), columns=kline.get('column'))
-        df['日期Date'] = [datetime.fromtimestamp(t / 1000).strftime('%Y%m%d') for t in df['timestamp']]
-        df['收盘Close'] = df['close']
-        df['开盘Open'] = df['open']
-        df['最高High'] = df['high']
-        df['最低Low'] = df['low']
-        df['指数代码Index Code'] = [symbol for i in df['close']]
-        df = df[df['timestamp'] >= start_timestamp]
-        dfs.append(df)
+        try:
+            kline = ball.kline(symbol, days=interval).get('data')
+            df = pd.DataFrame(kline.get('item'), columns=kline.get('column'))
+            df['日期Date'] = [datetime.fromtimestamp(t / 1000).strftime('%Y%m%d') for t in df['timestamp']]
+            df['收盘Close'] = df['close']
+            df['开盘Open'] = df['open']
+            df['最高High'] = df['high']
+            df['最低Low'] = df['low']
+            df['指数代码Index Code'] = [symbol for i in df['close']]
+            df = df[df['timestamp'] >= start_timestamp]
+            dfs.append(df)
+        except Exception as e:
+            print(str(e))
     return dfs
 
 
@@ -211,8 +215,9 @@ def render_multi(symbols, start_date, end_date=None):
 
 
 if __name__ == '__main__':
+    # start_time = '20190101'
     start_time = '20240901'
-    # end_time = '20250101'
+    # end_time = '20220101'
     end_time = None
     # start_time = (datetime.now() - timedelta(days=366)).strftime('%Y%m%d')
     symbol_list = [
@@ -222,7 +227,7 @@ if __name__ == '__main__':
         # 'SH512800',
         'SH510500',
         'SH512100',
-        'SZ159593',
-        'SZ159338',
+        # 'SZ159593',
+        # 'SZ159338',
     ]
     render_multi(symbol_list, start_time, end_time)
