@@ -4,12 +4,11 @@ from datetime import datetime, timedelta
 import pysnowball as ball
 import pandas as pd
 import numpy as np
+from src.indexes import all_stocks, example_color
 
 import matplotlib.dates as mpd
 import matplotlib.pylab as mpl
 import matplotlib.pyplot as plt
-
-from src.indexes import all_stocks
 
 mpl.rcParams['font.sans-serif'] = ['FangSong']
 mpl.rcParams['axes.unicode_minus'] = False
@@ -49,7 +48,7 @@ kline = ball.kline('SH600938', 300)
 income = ball.income(symbol='SH600938', is_annals=1, count=10)
 """
 
-ball.set_token("xq_a_token=4685c34fee29bd29d2d6d2cf332c8ea2e5541c59;u=3376125439;")
+ball.set_token("xq_a_token=efccba5b21eb83d54f69d1ec537bb060617c2f1b;u=3376125439;")
 
 example_symbols = [
     ('SH510050', '上证50ETF'),
@@ -63,16 +62,6 @@ example_symbols = [
     ('SH563300', '中证2000ETF'),
     ('SH600938', '中国海油'),
     ('01810', '小米集团'),
-]
-
-example_color = [
-    '#ff1908',
-    '#f5642c',
-    '#faad14',
-    '#1677ff',
-    '#00b96b',
-    '#f02b99',
-    '#8b70f1',
 ]
 
 message_found = """\n%s(%s) 昨日收盘%s，昨日涨幅%s，近一年涨幅%s，180日均线偏离值%s"""
@@ -104,6 +93,7 @@ def download(symbols, start_date):
         df['开盘Open'] = df['open']
         df['最高High'] = df['high']
         df['最低Low'] = df['low']
+        df['涨跌幅PRT'] = df['percent']
         df['指数代码Index Code'] = [symbol for i in df['close']]
         with pd.ExcelWriter(f'../data/download_{symbol}.xlsx') as writer:
             columns = ['日期Date', '指数代码Index Code', '收盘Close', '开盘Open', '最高High', '最低Low']
@@ -125,8 +115,10 @@ def get_index_data(symbols, start_date):
             df['开盘Open'] = df['open']
             df['最高High'] = df['high']
             df['最低Low'] = df['low']
+            df['涨跌幅PRT'] = df['percent']
             df['指数代码Index Code'] = [symbol for i in df['close']]
             df = df[df['timestamp'] >= start_timestamp]
+            # df.set_index('日期Date', inplace=True)
             dfs.append(df)
         except Exception as e:
             print(str(e))
@@ -184,7 +176,7 @@ def render(symbols, start_date, dfs, avg=180):
     plt.legend(loc='upper left')
     plt.grid(True)
     # plt.show()
-    plt.savefig(f'../output/render_dataframe_{start_time}.png', bbox_inches='tight')
+    plt.savefig(f'../output/render_dataframe_{start_date}.png', bbox_inches='tight')
     send_message(message)
 
 
@@ -211,23 +203,48 @@ def render_multi(symbols, start_date, end_date=None):
     plt.ylabel('收盘价')
     plt.legend(loc='upper left')
     plt.grid(True)
-    plt.savefig(f'../output/render_multi_{start_time}.png', bbox_inches='tight')
+    filename = f'../output/render_multi_{start_date}.png'
+    print(filename)
+    plt.savefig(filename, bbox_inches='tight')
 
 
-if __name__ == '__main__':
-    # start_time = '20190101'
-    start_time = '20240901'
-    # end_time = '20220101'
-    end_time = None
-    # start_time = (datetime.now() - timedelta(days=366)).strftime('%Y%m%d')
-    symbol_list = [
-        # 'SH000300',
-        'SH510300',
-        # 'SH510050',
-        # 'SH512800',
-        'SH510500',
-        'SH512100',
-        # 'SZ159593',
-        # 'SZ159338',
-    ]
-    render_multi(symbol_list, start_time, end_time)
+# 分析两个标的的阶段涨跌幅
+def calc_range_percent(symbols, start_date, end_date=None, date_type=None):
+    dfs = get_index_data(symbols, start_date)
+    dfs = sorted(dfs, key=lambda x: len(x.index), reverse=True)
+    new_dfs = []
+    for i, df in enumerate(dfs):
+        if end_date:
+            end = datetime.strptime(end_date, '%Y%m%d')
+            end_timestamp = end.timestamp() * 1000
+            df = df[df['timestamp'] <= end_timestamp]
+        symbol = df['指数代码Index Code'].iloc[0]
+        df.rename(columns={'close': f'{symbol}_close', 'percent': f'{symbol}_percent'}, inplace=True)
+        new_df = df[['日期Date', f'{symbol}_close', f'{symbol}_percent']]
+        new_dfs.append(new_df)
+    result = pd.concat(new_dfs, axis=1).drop_duplicates()
+    name = "_".join(symbols)
+    with pd.ExcelWriter(f'../output/compare_{name}.xlsx') as writer:
+        result.to_excel(writer, index=False, sheet_name='Data')
+        print(f'calc_range_percent success {name}')
+
+
+# start_time = '20190101'
+start_time = '20200101'
+# start_time = '20220101'
+# start_time = '20230101'
+# start_time = '20240101'
+# start_time = '20240901'
+# end_time = '20220101'
+end_time = None
+# start_time = (datetime.now() - timedelta(days=366)).strftime('%Y%m%d')
+symbol_list = [
+    'SH510050', 'SH510300', 'SH510500', 'SH512100', 'SH512800', 'SH512890', 'SH515080', 'SH515100', 'SH563020',
+    'SH563300', 'SH588000', 'SZ159338', 'SZ159555', 'SZ159593', 'SZ159915'
+]
+
+download(symbol_list, '20140101')
+
+# render_multi(symbol_list, start_time, end_time)
+
+# calc_range_percent(symbol_list, start_time, end_time)

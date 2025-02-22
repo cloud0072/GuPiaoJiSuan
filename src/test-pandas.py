@@ -1,13 +1,20 @@
-import pandas as pd
-import numpy as np
+symbol_list = [
+    'SH510300',
+    'SH510500',
+    'SZ159915',
+    'SH515080',
+    'SH510050',
+    'SH512800',
+    'SH512100',
+    'SH563300',
+    'SZ159555',
+    'SZ159593',
+    'SZ159338',
+    'SH512890',
+    'SH588000',
+    'SH563020',
+    'SH515100',
+]
 
-
-def test1():
-    # df = pd.DataFrame(np.random.rand(10, 4), columns=['a', 'b', 'c', 'd', ])
-    # df.plot.bar()
-    count = 1
-    count += 2
-    print(count)
-
-
-test1()
+symbol_list.sort()
+print(symbol_list)

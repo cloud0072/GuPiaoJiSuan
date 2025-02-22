@@ -228,7 +228,7 @@ class Account:
         # ax2.plot_date(date_index, df['近6月收益率'], '--', label="近6月收益率", color="skyblue")
         # ax2.plot_date(date_index, [avg_6m for d in date_index], '--', label="平均收益率", color="skyblue")
         # ax2.plot_date(date_index, df['近一年收益率'], '--', label="近一年收益率", color="skyblue")
-        ax2.plot_date(date_index, df['近6月5日均线收益率'], '--', label="近6月5日均线收益率", color="skyblue")
+        # ax2.plot_date(date_index, df['近6月5日均线收益率'], '--', label="近6月5日均线收益率", color="skyblue")
         # ax2.plot_date(date_index, [avg_year for d in date_index], '--', label="平均收益率", color="skyblue")
         # ax2.plot_date(date_index, df['近两年收益率'], '--', label="近两年收益率", color="blue")
         # ax2.plot_date(date_index, [avg_2year for d in date_index], '--', label="平均收益率", color="blue")
@@ -456,9 +456,9 @@ init_config = {
     # 'symbol': 'H20269',
     # 'symbol': 'H20955',
     # 'symbol': '515080',
-    'symbol': '510050',
-    'start': '20140101',
-    # 'start': '20191201',
+    'symbol': '512890',
+    # 'start': '20140101',
+    'start': '20190101',
     # 'end': '20191201',
     'end': '20250101',
     'init_money': 100_0000_0000,
@@ -477,7 +477,7 @@ init_config = {
 if __name__ == '__main__':
     # 19-24 / 14-24
     # simulate_render(deal_type=1, annual_sell=19, annual_buy=9)  # 年化 26.35/13.43 持仓时长67
-    # simulate_render(deal_type=1, annual_sell=17, annual_buy=9)  # 年化 26.03/13.13 持仓时长63.4
+    simulate_render(deal_type=1, annual_sell=17, annual_buy=9)  # 年化 26.03/13.13 持仓时长63.4
     # simulate_render(deal_type=2, annual_sell=19, annual_buy=-3)  # 年化 25.95/14.28 持仓时长68
     # simulate_render(deal_type=3, annual_sell=18, annual_buy=7)  # 年化 28.01/14.34 持仓时长70.7
     # simulate_render(deal_type=4, annual_sell=19, annual_buy=7, hs300_ratio=-0.05)  # 年化 32.02/16.02 持仓时长56.24
@@ -490,5 +490,5 @@ if __name__ == '__main__':
 
     # 15-25
     # simulate_render(deal_type=1, annual_sell=-3, annual_buy=-6, hs300_ratio=2)  # 510050 年化 5.58 持仓时长34.43
-    simulate_range((-5, 10), (-10, 0), 1)
+    # simulate_range((-5, 10), (-10, 0), 1)
 

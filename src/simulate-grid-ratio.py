@@ -444,17 +444,20 @@ symbols = [
     ('香港海外高股息', 'H20908'),
 ]
 etfs = [
+    ('300ETF', '510300'),
+    ('500ETF', '510500'),
     ('中证红利ETF', '515080'),
     ('红利低波100ETF', '515100'),
     ('红利低波ETF', '512890'),
 ]
 init_config = {
-    'symbol': '510050',
-    # 'symbol': '000300',
+    # 'symbol': '510050',
+    'symbol': '510300',
     # 'symbol': '000905',
     # 'symbol': '000852',
     # 'symbol': 'H20269',
-    'start': '20160101',
+    # 'start': '20160101',
+    'start': '20140101',
     'end': '20250101',
     'init_money': 100_0000_0000,
     'init_percent': 1,
@@ -466,12 +469,13 @@ init_config = {
 }
 
 if __name__ == '__main__':
-    # simulate_render(grid_step=11, grid_ratio=27, deal_type=1, symbol='000300')  # 6.46
+    # simulate_render(grid_step=11, grid_ratio=27, deal_type=1, symbol='510300')  # 6.46
+    simulate_render(grid_step=23, grid_ratio=20, deal_type=1, symbol='510300')  # 7.76
     # simulate_render(grid_step=12, grid_ratio=27, deal_type=5, symbol='000300')  # 8.15
     # simulate_render(grid_step=40, grid_ratio=40, deal_type=5, symbol='000300')  # 10.17
     # simulate_render(grid_step=25, grid_ratio=12, deal_type=5, symbol='000905')  # 8.73
     # simulate_render(grid_step=21, grid_ratio=12, deal_type=6, symbol='000300')  # 6.65
     # simulate_render(grid_step=43, grid_ratio=38, deal_type=1, symbol='510050')  # 8.06 29.22
-    simulate_render(grid_step=30, grid_ratio=30, deal_type=1, symbol='510050')  # 7.39 38.11
-    # simulate_range((20, 40), (20, 40), 1)  # type 5
+    # simulate_render(grid_step=30, grid_ratio=30, deal_type=1, symbol='510050')  # 7.39 38.11
+    # simulate_range((15, 25), (15, 25), 1)  # type 5
     # simulate_range((1, 40), (1, 40), 2)  # type 6
