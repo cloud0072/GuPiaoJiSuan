@@ -78,10 +78,6 @@ def render_message(symbol, df):
         symbol[1], symbol[0], f"{close}", f"{percent}%", f"{change}%", f"{plz}%",)
 
 
-def send_message(msg):
-    print(msg)
-
-
 def download(symbols, start_date):
     start = datetime.strptime(start_date, '%Y%m%d')
     interval = (datetime.now() - start).days
@@ -125,28 +121,6 @@ def get_index_data(symbols, start_date):
     return dfs
 
 
-def fetch_data(symbols, start_date):
-    start = datetime.strptime(start_date, '%Y%m%d')
-    start_timestamp = start.timestamp() * 1000
-    interval = (datetime.now() - start).days
-    dfs = []
-    for symbol in symbols:
-        kline = ball.kline(symbol, days=interval).get('data')
-        df = pd.DataFrame(kline.get('item'), columns=kline.get('column'))
-        df = df[df['timestamp'] >= start_timestamp]
-        df['date'] = [datetime.fromtimestamp(t / 1000).strftime('%Y-%m-%d') for t in df['timestamp']]
-        dfs.append(df)
-        # with pd.ExcelWriter(f'../output/{symbol}_{start_date}.xlsx') as writer:
-        #     columns = ['date', 'close', 'percent', 'timestamp']
-        #     df.to_excel(writer, index=False, sheet_name='Data', columns=columns)
-    return dfs
-
-
-def render_chart(symbols, start_date):
-    dfs = [pd.read_excel(f'../output/{symbol}_{start_date}.xlsx') for symbol in symbols]
-    render(symbols, start_date, dfs, )
-
-
 def render(symbols, start_date, dfs, avg=180):
     start = datetime.strptime(start_date, '%Y%m%d')
     start_timestamp = start.timestamp() * 1000
@@ -177,57 +151,6 @@ def render(symbols, start_date, dfs, avg=180):
     plt.grid(True)
     # plt.show()
     plt.savefig(f'../output/render_dataframe_{start_date}.png', bbox_inches='tight')
-    send_message(message)
-
-
-# 对比多个指数的方法
-def render_multi(symbols, start_date, end_date=None):
-    dfs = get_index_data(symbols, start_date)
-    dfs = sorted(dfs, key=lambda x: len(x.index), reverse=True)
-    fdf = dfs[0]
-    ratio = 1
-    plt.figure(figsize=(5 * 4, 5))
-    for i, df in enumerate(dfs):
-        if end_date:
-            end = datetime.strptime(end_date, '%Y%m%d')
-            end_timestamp = end.timestamp() * 1000
-            df = df[df['timestamp'] <= end_timestamp]
-        date_axis = pd.to_datetime(df['日期Date'], format='%Y%m%d')
-        symbol = df['指数代码Index Code'].iloc[0]
-        if i != 0:
-            fday = df['timestamp'].iloc[0]
-            row = fdf[fdf['timestamp'] == fday]
-            ratio = row['close'].iloc[0] / df['close'].iloc[0]
-        plt.plot_date(date_axis, [x * ratio for x in df['close']], '-', label=symbol, color=example_color[i])
-    plt.xlabel('交易日')
-    plt.ylabel('收盘价')
-    plt.legend(loc='upper left')
-    plt.grid(True)
-    filename = f'../output/render_multi_{start_date}.png'
-    print(filename)
-    plt.savefig(filename, bbox_inches='tight')
-
-
-# 分析两个标的的阶段涨跌幅
-def calc_range_percent(symbols, start_date, end_date=None, date_type=None):
-    dfs = get_index_data(symbols, start_date)
-    dfs = sorted(dfs, key=lambda x: len(x.index), reverse=True)
-    new_dfs = []
-    for i, df in enumerate(dfs):
-        if end_date:
-            end = datetime.strptime(end_date, '%Y%m%d')
-            end_timestamp = end.timestamp() * 1000
-            df = df[df['timestamp'] <= end_timestamp]
-        symbol = df['指数代码Index Code'].iloc[0]
-        df.rename(columns={'close': f'{symbol}_close', 'percent': f'{symbol}_percent'}, inplace=True)
-        new_df = df[['日期Date', f'{symbol}_close', f'{symbol}_percent']]
-        new_dfs.append(new_df)
-    result = pd.concat(new_dfs, axis=1).drop_duplicates()
-    name = "_".join(symbols)
-    with pd.ExcelWriter(f'../output/compare_{name}.xlsx') as writer:
-        result.to_excel(writer, index=False, sheet_name='Data')
-        print(f'calc_range_percent success {name}')
-
 
 # start_time = '20190101'
 start_time = '20200101'
@@ -244,7 +167,3 @@ symbol_list = [
 ]
 
 download(symbol_list, '20140101')
-
-# render_multi(symbol_list, start_time, end_time)
-
-# calc_range_percent(symbol_list, start_time, end_time)

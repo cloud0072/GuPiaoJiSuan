@@ -76,4 +76,4 @@ ax.set_xticklabels(merged_df.index.strftime('%Y-%m'), rotation=45, ha='right')
 ax.legend()
 
 # 保存
-plt.savefig(f'../output/render_compare_etf.png', bbox_inches='tight')
+plt.savefig(f'../output/compare_etf_pct.png', bbox_inches='tight')
