@@ -29,6 +29,7 @@ def get_index_data(symbols, start):
             print(str(e))
     return dfs
 
+
 # 对比多个指数的方法
 def render_multi(symbols, start_date, end_date=None):
     dfs = get_index_data(symbols, start_date)
@@ -51,16 +52,19 @@ def render_multi(symbols, start_date, end_date=None):
     plt.ylabel('收盘价')
     plt.legend(loc='upper left')
     plt.grid(True)
-    filename = f'../output/compare_etf_kline.png'
+    filename = f'../output/compare_etf_kline_{start_date}.png'
     plt.savefig(filename, bbox_inches='tight')
+
 
 # 要对比的标的列表
 symbol_list = [
     # 'SH588000',
     'SH510300',
-    'SH510500',
+    # 'SH510500',
     'SH512100',
     # 'SH512890',
 ]
 
-render_multi(symbol_list, start_date='20190101')
+render_multi(symbol_list, start_date='20240101')
+# render_multi(symbol_list, start_date='20240101')
+# render_multi(symbol_list, start_date='20190101')

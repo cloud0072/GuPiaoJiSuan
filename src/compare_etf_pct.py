@@ -18,18 +18,21 @@ def calc(d1, d2):
 
 # 要对比的标的列表
 symbol_list = [
-    # 'SH588000',
-    'SH510300',
-    'SH510500',
-    'SH512100',
-    # 'SH512890',
+    # 'SH588000', # 科创50
+    # 'SH510300', # 沪深300
+    # 'SH510500',  # 中证500
+    # 'SH512100', # 中证1000
+    # 'SH516160',  # 新能源ETF
+    'SH512890',  # 红利ETF
+    'SZ159915',  # 创业板ETF
 ]
 
-year_range = 6  # 时间
-date_type = 'ME'  # 月度
+year_range = 3  # 时间
+date_type = 'W'  # 月度
 
 # 获取当前日期并计算5年前的日期
-end_date = pd.Timestamp.now()
+end_date = pd.Timestamp("2021-12-31")
+# end_date = pd.Timestamp.now()
 start_date = end_date - pd.DateOffset(years=year_range)
 aggs = []
 
@@ -55,7 +58,7 @@ pd.set_option('display.max_columns', None)  # 显示所有列
 print("月涨跌幅对比:")
 print(merged_df)
 
-fig, ax = plt.subplots(figsize=(20, 6))
+fig, ax = plt.subplots(figsize=(30, 6))
 
 # 设置柱的位置
 x = np.arange(len(merged_df.index))
@@ -72,8 +75,8 @@ ax.set_xlabel('日期')
 ax.set_ylabel('涨跌幅 (%)')
 ax.set_title('近5年每月涨跌幅对比')
 ax.set_xticks(x)
-ax.set_xticklabels(merged_df.index.strftime('%Y-%m'), rotation=45, ha='right')
+ax.set_xticklabels(merged_df.index.strftime('%Y-%m-%d'), rotation=45, ha='right')
 ax.legend()
 
 # 保存
-plt.savefig(f'../output/compare_etf_pct.png', bbox_inches='tight')
+plt.savefig(f'../output/compare_etf_pct_{start_date.strftime("%Y%m%d")}.png', bbox_inches='tight')

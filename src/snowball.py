@@ -152,6 +152,7 @@ def render(symbols, start_date, dfs, avg=180):
     # plt.show()
     plt.savefig(f'../output/render_dataframe_{start_date}.png', bbox_inches='tight')
 
+
 # start_time = '20190101'
 start_time = '20200101'
 # start_time = '20220101'
@@ -163,7 +164,7 @@ end_time = None
 # start_time = (datetime.now() - timedelta(days=366)).strftime('%Y%m%d')
 symbol_list = [
     'SH510050', 'SH510300', 'SH510500', 'SH512100', 'SH512800', 'SH512890', 'SH515080', 'SH515100', 'SH563020',
-    'SH563300', 'SH588000', 'SZ159338', 'SZ159555', 'SZ159593', 'SZ159915'
+    'SH563300', 'SH588000', 'SZ159338', 'SZ159555', 'SZ159593', 'SZ159915', "SH516160", 'SZ159545', "SH513630"
 ]
 
 download(symbol_list, '20140101')
