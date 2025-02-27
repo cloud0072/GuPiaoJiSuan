@@ -18,21 +18,23 @@ def calc(d1, d2):
 
 # 要对比的标的列表
 symbol_list = [
-    # 'SH588000', # 科创50
-    # 'SH510300', # 沪深300
-    # 'SH510500',  # 中证500
-    # 'SH512100', # 中证1000
+    'SH510300',  # 沪深300
+    'SH510500',  # 中证500
+    'SH512100',  # 中证1000
     # 'SH516160',  # 新能源ETF
-    'SH512890',  # 红利ETF
-    'SZ159915',  # 创业板ETF
+    # 'SH512890',  # 红利ETF
+    # 'SH588000',  # 科创50
+    # 'SZ159915',  # 创业板ETF
 ]
 
-year_range = 3  # 时间
-date_type = 'W'  # 月度
+year_range = 10  # 时间
+# date_type = 'W'  # 周度
+# date_type = 'ME'  # 月度
+date_type = 'QE'  # 季度
 
 # 获取当前日期并计算5年前的日期
-end_date = pd.Timestamp("2021-12-31")
-# end_date = pd.Timestamp.now()
+# end_date = pd.Timestamp("2021-12-31")
+end_date = pd.Timestamp.now()
 start_date = end_date - pd.DateOffset(years=year_range)
 aggs = []
 
@@ -58,7 +60,7 @@ pd.set_option('display.max_columns', None)  # 显示所有列
 print("月涨跌幅对比:")
 print(merged_df)
 
-fig, ax = plt.subplots(figsize=(30, 6))
+fig, ax = plt.subplots(figsize=(max(0.5 * len(merged_df.index), 10), 6))
 
 # 设置柱的位置
 x = np.arange(len(merged_df.index))
@@ -69,6 +71,8 @@ width = round(1 / (1 + cols), 2)
 for i, col in enumerate(merged_df.columns):
     location = x + width * i  # 计算每组柱子相对于中心位置的偏移量
     ax.bar(location, merged_df[col], width, label=col, color=example_color[i])
+
+ax.hlines(y=[-20, -10, 0, 10, 20], xmin=min(x) - width, xmax=max(x) + width, colors='#666', linestyles='--')  # 在x=2, 4, 6位置添加蓝色点线辅助线
 
 # 添加一些文本信息
 ax.set_xlabel('日期')
