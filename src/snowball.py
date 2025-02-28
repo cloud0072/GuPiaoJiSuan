@@ -167,4 +167,5 @@ symbol_list = [
     'SH563300', 'SH588000', 'SZ159338', 'SZ159555', 'SZ159593', 'SZ159915', "SH516160", 'SZ159545', "SH513630"
 ]
 
-download(symbol_list, '20140101')
+
+download(symbol_list, '20130101')

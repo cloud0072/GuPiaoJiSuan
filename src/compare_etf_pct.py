@@ -18,9 +18,9 @@ def calc(d1, d2):
 
 # 要对比的标的列表
 symbol_list = [
-    'SH510300',  # 沪深300
+    # 'SH510300',  # 沪深300
     'SH510500',  # 中证500
-    'SH512100',  # 中证1000
+    # 'SH512100',  # 中证1000
     # 'SH516160',  # 新能源ETF
     # 'SH512890',  # 红利ETF
     # 'SH588000',  # 科创50
@@ -29,8 +29,8 @@ symbol_list = [
 
 year_range = 10  # 时间
 # date_type = 'W'  # 周度
-# date_type = 'ME'  # 月度
-date_type = 'QE'  # 季度
+date_type = 'ME'  # 月度
+# date_type = 'QE'  # 季度
 
 # 获取当前日期并计算5年前的日期
 # end_date = pd.Timestamp("2021-12-31")
