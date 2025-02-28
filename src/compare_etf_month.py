@@ -71,11 +71,13 @@ output_path = f'../output/compare_etf_month.xlsx'
 with pd.ExcelWriter(output_path) as writer:
     for col in merged_df.columns:
         if '涨幅' in col:
-            cross_tab = pd.pivot_table(merged_df, values=col, index='Year', columns='Month', aggfunc='sum', fill_value=0)
+            cross_tab = pd.pivot_table(merged_df, values=col, index='Year', columns='Month', aggfunc='sum',
+                                       fill_value=0)
             cross_tab.to_excel(writer, sheet_name=col)
 
 # 加载工作簿并应用样式
 wb = load_workbook(output_path)
+
 
 def apply_styles(ws):
     for row in ws.iter_rows(min_row=2, min_col=2):  # 跳过标题行，并从第二列开始
@@ -90,8 +92,10 @@ def apply_styles(ws):
                 elif -2 < cell.value < 0:
                     cell.fill = PatternFill(start_color="d9f7be", end_color="d9f7be", fill_type="solid")  # 浅绿色
 
-apply_styles(wb['SH510300涨幅'])
-apply_styles(wb['SH510500涨幅'])
+
+for col in merged_df.columns:
+    if '涨幅' in col:
+        apply_styles(wb[col])
 
 # 保存修改后的工作簿
 wb.save(output_path)
