@@ -184,4 +184,4 @@ symbol_list = [
     "SH513630",  # 港股红利指数ETF
 ]
 
-download(symbol_list, '20130101')
+download(symbol_list, '20100101')

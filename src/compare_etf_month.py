@@ -32,7 +32,7 @@ symbol_list = [
     # 'SZ159915',  # 创业板ETF
 ]
 
-year_range = 12  # 时间
+year_range = 15  # 时间
 # date_type = 'W'  # 周度
 date_type = 'ME'  # 月度
 # date_type = 'QE'  # 季度
@@ -50,12 +50,18 @@ for symbol in symbol_list:
     df.set_index('date', inplace=True)
     # 按月重采样，获取每月第一个交易日的开盘价和最后一个交易日的收盘价
     agg = df.resample(date_type).agg({
-        '开盘Open': 'first',
+    #     '开盘Open': 'first',
         '收盘Close': 'last'
     })
-    # 计算涨跌幅
-    agg[f'{symbol}涨幅'] = calc(agg['收盘Close'], agg['开盘Open'])
+    # # 计算涨跌幅
+    agg[f'{symbol}涨幅'] = calc(agg['收盘Close'], agg['收盘Close'].shift(1))
     aggs.append(agg[[f'{symbol}涨幅']])
+
+    # agg_first = df['开盘Open'].resample(date_type).first()
+    # agg_last = df['收盘Close'].resample(date_type).last()
+    # monthly = (agg_last - agg_first) / agg_first * 100
+    # agg = monthly.to_frame(name=f'{symbol}涨幅')
+    # aggs.append(agg[[f'{symbol}涨幅']])
 
 merged_df = pd.concat(aggs, axis=1, join='inner')
 merged_df['Month'] = [d.strftime('%m') for d in merged_df.index]
@@ -71,8 +77,8 @@ output_path = f'../output/compare_etf_month.xlsx'
 with pd.ExcelWriter(output_path) as writer:
     for col in merged_df.columns:
         if '涨幅' in col:
-            cross_tab = pd.pivot_table(merged_df, values=col, index='Year', columns='Month', aggfunc='sum',
-                                       fill_value=0)
+            cross_tab = pd.pivot_table(merged_df, values=col,
+                                       index='Year', columns='Month', aggfunc='sum', fill_value=0)
             cross_tab.to_excel(writer, sheet_name=col)
 
 # 加载工作簿并应用样式
