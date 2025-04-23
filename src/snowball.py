@@ -19,7 +19,7 @@ plt.switch_backend('TkAgg')
 https://github.com/uname-yang/pysnowball、
 
 # 设置token Cookie中的xq_a_token
-ball.set_token("xq_a_tokene36746aa36d09ef01e900d02440657bf657ac97c;u=3376125439;")
+ball.set_token("xq_a_toke=d20dea7ef39b850b2f6ce1d796eac2c2113c46f2;u=3376125439;")
 
 # 实时行情
 data = ball.quote_detail('SH600938')
@@ -48,7 +48,7 @@ kline = ball.kline('SH600938', 300)
 income = ball.income(symbol='SH600938', is_annals=1, count=10)
 """
 
-ball.set_token("xq_a_token=efccba5b21eb83d54f69d1ec537bb060617c2f1b;u=3376125439;")
+ball.set_token("xq_a_token=d20dea7ef39b850b2f6ce1d796eac2c2113c46f2;u=3376125439;")
 
 example_symbols = [
     ('SH510050', '上证50ETF'),
@@ -182,6 +182,7 @@ symbol_list = [
     'SH563020',  # 红利低波动ETF
     'SZ159545',  # 恒生红利低波
     "SH513630",  # 港股红利指数ETF
+    "SH511010",  # 国债ETF
 ]
 
 download(symbol_list, '20100101')
