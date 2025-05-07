@@ -59,12 +59,11 @@ symbol_list = [
     # 'SZ159915',  # 创业板ETF
 ]
 
-year_range = 15  # 时间
+year_range = 12  # 时间
 # date_type = 'W'  # 周度
 date_type = 'ME'  # 月度
-
-
 # date_type = 'QE'  # 季度
+# date_type = 'YE'  # 年度
 
 # 涨跌幅
 def calc_month_percent():
@@ -94,7 +93,7 @@ def calc_month_percent():
     # 打印结果查看
     # print("月涨跌幅对比:")
 
-    output_path = f'../output/compare_etf_month_percent.xlsx'
+    output_path = f'../output/compare_etf_percent_{date_type}.xlsx'
     with pd.ExcelWriter(output_path) as writer:
         for col in merged_df.columns:
             if '涨幅' in col:
@@ -141,7 +140,7 @@ def calc_month_range():
     # 打印结果查看
     # print("月涨跌幅对比:")
 
-    output_path = f'../output/compare_etf_month_range.xlsx'
+    output_path = f'../output/compare_etf_range{date_type}.xlsx'
     with pd.ExcelWriter(output_path) as writer:
         for col in merged_df.columns:
             if '高低差' in col:
@@ -160,7 +159,7 @@ def calc_month_range():
 
 
 # =SUM(B2:B14)/12
-# calc_month_percent()
+calc_month_percent()
 
 # =SUM(B2:B14) / 12
-calc_month_range()
+# calc_month_range()

@@ -58,13 +58,13 @@ def render_multi(symbols, start_date, end_date=None):
 
 # 要对比的标的列表
 symbol_list = [
-    # 'SH510050',  # 上证50ETF
+    'SH510050',  # 上证50ETF
     'SH510300',  # 沪深300ETF
     'SH510500',  # 中证500ETF
-    'SH512100',  # 中证1000ETF
+    # 'SH512100',  # 中证1000ETF
     # 'SH563300',  # 中证2000ETF
-    # 'SH588000',  # 科创50
-    # 'SZ159915',  # 创业板ETF
+    'SH588000',  # 科创50
+    'SZ159915',  # 创业板ETF
     # 'SZ159593',  # 中证A50指数ETF
     # 'SZ159338',  # 中证A500ETF
     # 'SH512760',  # 芯片ETF
@@ -78,7 +78,13 @@ symbol_list = [
     # 'SZ159545',  # 恒生红利低波
     # "SH513630",  # 港股红利指数ETF
 ]
+# start_date = (pd.Timestamp.now() - pd.DateOffset(years=1)).strftime("%Y%m%d")
+# end_date = (pd.Timestamp.now() - pd.DateOffset(years=1)).strftime("%Y%m%d")
 
-render_multi(symbol_list, start_date=(pd.Timestamp.now() - pd.DateOffset(years=6)).strftime("%Y%m%d"))
+start_date = '20190101'
+# end_date = '20240101'
+end_date = None
+
+render_multi(symbol_list, start_date=start_date, end_date=end_date)
 # render_multi(symbol_list, start_date='20240101')
 # render_multi(symbol_list, start_date='20190101')
