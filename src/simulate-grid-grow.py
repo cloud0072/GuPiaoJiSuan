@@ -14,7 +14,9 @@ plt.switch_backend('TkAgg')
 
 date_format = '%Y%m%d'
 year_days = 244
-
+"""
+红利网格
+"""
 
 class DateEncoder(json.JSONEncoder):
     def default(self, obj):

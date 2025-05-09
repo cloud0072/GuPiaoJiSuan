@@ -15,6 +15,12 @@ date_format = '%Y%m%d'
 year_days = 244
 
 
+"""
+网格交易 每次买卖一定百分比
+网格最大的问题就是在涨幅过大的时候无法获得上涨的收益
+
+"""
+
 def find_value(array, key, value):
     for item in array:
         if key in item and item[key] == value:
@@ -79,7 +85,7 @@ def read_snowball(codes):
     end_time = pd.to_datetime(end, format=date_format) if end else None
     result = []
     for code in codes.split(','):
-        df = pd.read_excel(f'../data/download_SH{code}.xlsx', usecols=['日期Date', '收盘Close', '最高High', '最低Low'])
+        df = pd.read_excel(f'../data/download_{code}.xlsx', usecols=['日期Date', '收盘Close', '最高High', '最低Low'])
         df['日期Date'] = pd.to_datetime(df['日期Date'], format=date_format)
         df['近一年收益率'] = computed_annualized(year_days, df['收盘Close'], )
         df['180天均线'] = df['收盘Close'].rolling(180).mean()
@@ -103,6 +109,14 @@ def simulate_render(grid_step=None, grid_ratio=None, deal_type=None, symbol=None
     if symbol:
         init_config.update({'symbol': symbol})
     symbol = init_config.get('symbol')
+    print(json.dumps({
+        '标的代码': init_config.get('symbol'),
+        '初始金额': init_config.get('init_money'),
+        '初始持仓比例': int(init_config.get('init_percent')) * 100,
+        '开始时间': init_config.get('start'),
+        '结束时间': init_config.get('end', '今天'),
+        '网格模式': init_config.get('deal_type'),
+    }, ensure_ascii=False))
     # [df] = read_csindex(symbol)
     [df] = read_snowball(symbol)
     account = Account(init_config, df)
@@ -110,12 +124,12 @@ def simulate_render(grid_step=None, grid_ratio=None, deal_type=None, symbol=None
     account.computed()
     account.render()
     print(json.dumps({
-        'grid_step': init_config.get('grid_step'),
-        'grid_ratio': init_config.get('grid_ratio'),
-        'annual_grow': account.annual_grow(),
-        'ratio_avg': round(float(np.mean(account.z1)), 2),
-        'index_grow': computed_grow(account.df['收盘Close'].iloc[0], account.df['收盘Close'].iloc[-1]),
-        'total_grow': computed_grow(account.z3[0], account.z3[-1]),
+        '网格间隔%': init_config.get('grid_step'),
+        '成交比例%': init_config.get('grid_ratio'),
+        '年化收益率%': account.annual_grow(),
+        '平均持仓比例%': round(float(np.mean(account.z1)), 2),
+        '标的涨幅%': computed_grow(account.df['收盘Close'].iloc[0], account.df['收盘Close'].iloc[-1]),
+        '持仓收益率%': computed_grow(account.z3[0], account.z3[-1]),
     }, ensure_ascii=False))
 
 
@@ -232,12 +246,13 @@ class Account:
         fig, ax1 = plt.subplots(figsize=(4 * 10, 4))
         ax1.plot_date(date_index, df['收盘Close'], '-', label=self.symbol, color="red")
         # ax1.plot_date(date_index, df['180天均线'], '--', label="180天均线", color="red")
-        # ax1.plot_date(date_index, df['近一年均线'], '--', label="近一年均线", color="red")
-        ax1.plot_date(date_index, df['近两年均线'], '--', label="近两年均线", color="red")
+        ax1.plot_date(date_index, df['近一年均线'], '--', label="近一年均线", color="red")
+        # ax1.plot_date(date_index, df['近两年均线'], '--', label="近两年均线", color="red")
         # ax1.plot_date(date_index, [x * hs300_ratio for x in hs300df['收盘Close']], '-', label='000300', color="orange")
         ax1.plot_date(date_index, [x * amount_ratio for x in self.z3], '-', label="总资产", color="darkred")
 
         ax2 = ax1.twinx()
+        ax2.set_ylim([-5, 105])
         ax2.plot_date(date_index, self.z1, '--', label="比例", color="darkblue")
         # ax2.plot_date(date_index, [avg_year for d in date_index], '--', label="平均收益率", color="skyblue")
 
@@ -303,6 +318,7 @@ class Account:
 
     # 按持仓比例买卖  参考近一年均线
     def computed_avg_next5(self):
+        avg_name = '近一年均线'
         date = self.df['日期Date'].iloc[self.index]
         price_close = self.df['收盘Close'].iloc[self.index]
         price_high = self.df['最高High'].iloc[self.index]
@@ -310,7 +326,7 @@ class Account:
         price_low = self.df['最低Low'].iloc[self.index]
         price_low = price_close if np.isnan(price_low) else price_low
         # avg = self.df['180天均线'].iloc[self.index]
-        avg = self.df['近一年均线'].iloc[self.index]
+        avg = self.df[avg_name].iloc[self.index]
         total_money = self.total_amount()
         grid_value = self.grid_value
         grid_step = self.grid_step
@@ -348,12 +364,12 @@ class Account:
 
                 if self.enable_log:
                     print(json.dumps({
-                        'date': date.strftime('%Y%m%d'),
-                        'price': self.grid_value,
-                        'count_delta': count_delta,
-                        'factor': round(factor, 2),
-                        'n': round(n, 2),
-                        'avg': round(avg, 2),
+                        '日期': date.strftime('%Y%m%d'),
+                        '价格': self.grid_value,
+                        avg_name: round(avg, 2),
+                        '网格乘数因子': round(n, 2),
+                        '成交股': count_delta,
+                        '持仓百分比': round(factor, 2),
                     }, ensure_ascii=False))
         except Exception as e:
             print(e)
@@ -451,16 +467,16 @@ etfs = [
     ('红利低波ETF', '512890'),
 ]
 init_config = {
-    # 'symbol': '510050',
-    'symbol': '510300',
-    # 'symbol': '000905',
-    # 'symbol': '000852',
+    # 'symbol': 'SH510050',
+    'symbol': 'SH510300',
+    # 'symbol': 'SH000905',
+    # 'symbol': 'SH000852',
     # 'symbol': 'H20269',
     # 'start': '20160101',
-    'start': '20140101',
-    'end': '20250101',
+    'start': '20200101',
+    # 'end': '20250101',
     'init_money': 100_0000_0000,
-    'init_percent': 1,
+    'init_percent': 0.8,
     'deal_type': 1,  # 按总资产的百分比网格
     # 'deal_type': 5,  # 按总资产百分比做网格，加入超卖超买影响因子 ，越跌越买 使用近一年均线
     # 'deal_type': 6,  # 按总资产百分比做网格，加入超卖超买影响因子 进行平方，增大偏离效果 ，越跌越买 使用近一年周均线
@@ -469,13 +485,15 @@ init_config = {
 }
 
 if __name__ == '__main__':
-    # simulate_render(grid_step=11, grid_ratio=27, deal_type=1, symbol='510300')  # 6.46
-    simulate_render(grid_step=23, grid_ratio=20, deal_type=1, symbol='510300')  # 7.76
-    # simulate_render(grid_step=12, grid_ratio=27, deal_type=5, symbol='000300')  # 8.15
-    # simulate_render(grid_step=40, grid_ratio=40, deal_type=5, symbol='000300')  # 10.17
-    # simulate_render(grid_step=25, grid_ratio=12, deal_type=5, symbol='000905')  # 8.73
-    # simulate_render(grid_step=21, grid_ratio=12, deal_type=6, symbol='000300')  # 6.65
-    # simulate_render(grid_step=43, grid_ratio=38, deal_type=1, symbol='510050')  # 8.06 29.22
-    # simulate_render(grid_step=30, grid_ratio=30, deal_type=1, symbol='510050')  # 7.39 38.11
+    # simulate_render(grid_step=11, grid_ratio=27, deal_type=1, symbol='SH510300')  # 6.46
+    # simulate_render(grid_step=23, grid_ratio=20, deal_type=1, symbol='SH510300')  # 7.76
+    # simulate_render(grid_step=12, grid_ratio=27, deal_type=5, symbol='SH000300')  # 8.15
+    # simulate_render(grid_step=40, grid_ratio=40, deal_type=5, symbol='SH000300')  # 10.17
+    # simulate_render(grid_step=25, grid_ratio=12, deal_type=5, symbol='SH000905')  # 8.73
+    # simulate_render(grid_step=21, grid_ratio=12, deal_type=6, symbol='SH000300')  # 6.65
+    # simulate_render(grid_step=43, grid_ratio=38, deal_type=1, symbol='SH510050')  # 8.06 29.22
+    # simulate_render(grid_step=30, grid_ratio=30, deal_type=1, symbol='SH510050')  # 7.39 38.11
     # simulate_range((15, 25), (15, 25), 1)  # type 5
     # simulate_range((1, 40), (1, 40), 2)  # type 6
+
+    simulate_render(grid_step=20, grid_ratio=5, deal_type=5, symbol='SZ002354')  # 7.76

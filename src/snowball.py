@@ -19,7 +19,7 @@ plt.switch_backend('TkAgg')
 https://github.com/uname-yang/pysnowball、
 
 # 设置token Cookie中的xq_a_token
-ball.set_token("xq_a_toke=d20dea7ef39b850b2f6ce1d796eac2c2113c46f2;u=3376125439;")
+ball.set_token("xq_a_toke=638fe55fac624a9f4b79ab777fe1f244e9597baa;u=3376125439;")
 
 # 实时行情
 data = ball.quote_detail('SH600938')
@@ -48,7 +48,7 @@ kline = ball.kline('SH600938', 300)
 income = ball.income(symbol='SH600938', is_annals=1, count=10)
 """
 
-ball.set_token("xq_a_token=d20dea7ef39b850b2f6ce1d796eac2c2113c46f2;u=3376125439;")
+ball.set_token("xq_a_token=638fe55fac624a9f4b79ab777fe1f244e9597baa;u=3376125439;")
 
 example_symbols = [
     ('SH510050', '上证50ETF'),
@@ -82,7 +82,13 @@ def download(symbols, start_date):
     start = datetime.strptime(start_date, '%Y%m%d')
     interval = (datetime.now() - start).days
     for symbol in symbols:
-        kline = ball.kline(symbol, days=interval).get('data')
+        try:
+            kline = ball.kline(symbol, days=interval).get('data')
+        except Exception as e:
+            raw_data = e.args[0]
+            msg = raw_data.decode('utf-8') if isinstance(raw_data, bytes) else str(raw_data)
+            print(msg)
+            return
         df = pd.DataFrame(kline.get('item'), columns=kline.get('column'))
         df['日期Date'] = [datetime.fromtimestamp(t / 1000).strftime('%Y%m%d') for t in df['timestamp']]
         df['收盘Close'] = df['close']
@@ -185,4 +191,6 @@ symbol_list = [
     "SH511010",  # 国债ETF
 ]
 
-download(symbol_list, '20100101')
+# download(symbol_list, '20100101')
+# download(['SH000001', 'SH000300'], '19900101')
+download(['SZ002354'], '20140101')
