@@ -18,19 +18,20 @@ def calc(d1, d2):
 
 # 要对比的标的列表
 symbol_list = [
+    'SH510050',  # 上证50ETF
     # 'SH510300',  # 沪深300
     'SH510500',  # 中证500
-    'SH512100',  # 中证1000
-    'SH563300',  # 中证2000ETF
+    # 'SH512100',  # 中证1000
+    # 'SH563300',  # 中证2000ETF
     # 'SH516160',  # 新能源ETF
     # 'SH512890',  # 红利ETF
     # 'SH588000',  # 科创50
     # 'SZ159915',  # 创业板ETF
 ]
 
-year_range = 10  # 时间
-# date_type = 'W'  # 周度
-date_type = 'ME'  # 月度
+year_range = 5  # 时间
+date_type = 'W'  # 周度
+# date_type = 'ME'  # 月度
 # date_type = 'QE'  # 季度
 
 # 获取当前日期并计算5年前的日期

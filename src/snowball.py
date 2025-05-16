@@ -98,7 +98,7 @@ def download(symbols, start_date):
         df['涨跌幅PRT'] = df['percent']
         df['指数代码Index Code'] = [symbol for i in df['close']]
         with pd.ExcelWriter(f'../data/download_{symbol}.xlsx') as writer:
-            columns = ['日期Date', '指数代码Index Code', '收盘Close', '开盘Open', '最高High', '最低Low']
+            columns = ['日期Date', '指数代码Index Code', '收盘Close', '开盘Open', '最高High', '最低Low', '涨跌幅PRT']
             df.to_excel(writer, index=False, sheet_name='Data', columns=columns)
             print(f'download success {symbol}')
 
@@ -191,6 +191,7 @@ symbol_list = [
     "SH511010",  # 国债ETF
 ]
 
-# download(symbol_list, '20100101')
+download(symbol_list, '20100101')
+# download(['SH510300'], '20100101')
 # download(['SH000001', 'SH000300'], '19900101')
-download(['SZ002354'], '20140101')
+# download(['SZ002354'], '20140101')
